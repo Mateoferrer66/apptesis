@@ -1,0 +1,6 @@
+@PlagasCafe.Api_HostAddress = http://localhost:5089
+
+GET {{PlagasCafe.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
