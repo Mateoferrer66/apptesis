@@ -1,9 +1,12 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { ScanLine, History, BarChart3, Settings, Leaf, Wifi, WifiOff, CloudUpload } from 'lucide-react';
+import { ScanLine, History, BarChart3, Settings, Leaf, Wifi, WifiOff, CloudUpload, LogOut, User } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useAuth } from '../contexts/AuthContext';
 
 export const Layout = ({ children, isOnline, isSyncing, onSync, modelReady }) => {
+  const { user, logout } = useAuth();
+
   const navItems = [
     { to: '/', icon: ScanLine, label: 'Escanear' },
     { to: '/historial', icon: History, label: 'Historial' },
@@ -20,7 +23,7 @@ export const Layout = ({ children, isOnline, isSyncing, onSync, modelReady }) =>
             <Leaf className="w-5 h-5" strokeWidth={2.5} />
           </div>
           <div>
-            <h1 className="text-[17px] font-black tracking-tight text-gray-900 leading-none">AgriSense AI</h1>
+            <h1 className="text-[17px] font-black tracking-tight text-gray-900 leading-none">AgroVision PWA</h1>
             <p className="text-[10px] font-extrabold uppercase tracking-[0.15em] text-green-700/70 mt-0.5">
               Cafetales Colombia
             </p>
@@ -28,6 +31,14 @@ export const Layout = ({ children, isOnline, isSyncing, onSync, modelReady }) =>
         </div>
 
         <div className="flex items-center gap-2.5">
+          {/* User info */}
+          {user && (
+            <div className="hidden sm:flex items-center gap-1.5 text-[10px] font-bold text-gray-600 bg-gray-100/80 px-2.5 py-1.5 rounded-xl ring-1 ring-gray-200/60">
+              <User className="w-3 h-3" />
+              {user.fullName}
+            </div>
+          )}
+
           {/* Model Status */}
           {modelReady ? (
             <div className="hidden sm:flex items-center gap-1.5 text-[10px] font-bold text-green-700 bg-green-100/80 px-2.5 py-1.5 rounded-xl ring-1 ring-green-200/60">
@@ -54,6 +65,15 @@ export const Layout = ({ children, isOnline, isSyncing, onSync, modelReady }) =>
           <div className={`p-2 rounded-xl shadow-sm ${isOnline ? 'bg-blue-50 text-blue-500 ring-1 ring-blue-100' : 'bg-gray-100 text-gray-400 ring-1 ring-gray-200'}`}>
             {isOnline ? <Wifi className="w-4.5 h-4.5" /> : <WifiOff className="w-4.5 h-4.5" />}
           </div>
+
+          {/* Logout */}
+          <button
+            onClick={logout}
+            className="p-2 rounded-xl bg-red-50 text-red-500 hover:bg-red-100 ring-1 ring-red-100 transition-all"
+            title="Cerrar sesión"
+          >
+            <LogOut className="w-4.5 h-4.5" />
+          </button>
         </div>
       </header>
 

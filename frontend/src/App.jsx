@@ -5,12 +5,15 @@ import { ScanPage } from './pages/ScanPage';
 import { HistoryPage } from './pages/HistoryPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { InfoPage } from './pages/InfoPage';
+import { LoginPage } from './pages/LoginPage';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { initModel } from './services/aiModelService';
 import { syncTelemetry } from './services/syncService';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Leaf, Cpu, Shield, CheckCircle } from 'lucide-react';
 
-function App() {
+function AppContent() {
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [modelReady, setModelReady] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -32,13 +35,18 @@ function App() {
       // Keep splash for at least 2.5s for a premium feel
       setTimeout(() => setShowSplash(false), 2500);
     };
-    setup();
+
+    if (isAuthenticated) {
+      setup();
+    } else {
+      setShowSplash(false);
+    }
 
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  }, []);
+  }, [isAuthenticated]);
 
   const handleSync = async () => {
     if (!navigator.onLine) return;
@@ -50,6 +58,20 @@ function App() {
       setTimeout(() => setSyncToast(''), 3500);
     }
   };
+
+  // Auth loading state
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-green-900 via-emerald-900 to-green-950">
+        <div className="w-8 h-8 border-3 border-green-400 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  // Not authenticated → show login
+  if (!isAuthenticated) {
+    return <LoginPage />;
+  }
 
   return (
     <>
@@ -92,7 +114,7 @@ function App() {
               transition={{ delay: 0.3 }}
               className="text-3xl font-black text-white tracking-tight mb-2"
             >
-              AgriSense AI
+              AgroVision PWA
             </motion.h1>
 
             <motion.p
@@ -166,6 +188,14 @@ function App() {
         </Layout>
       </BrowserRouter>
     </>
+  );
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }
 
