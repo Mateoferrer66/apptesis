@@ -386,10 +386,10 @@ public record InferenceResultRecord(string Id, string ImageId, string ModelName,
 public record SyncEventRecord(string Id, string DeviceId, string EntityName, string EntityId, string SyncStatus);
 
 // Payloads
-public record CreateInspectionPayload(string PlotId, string InspectorId, DateTime? InspectionDate);
-public record CreateImagePayload(string InspectionId, string FileUri, string? MimeType, int Width, int Height, string DeviceId);
-public record CreateObservationPayload(string InspectionId, string DiseaseId, int SeverityLevel, decimal IncidencePercent, string? SourceType);
-public record CreateInferenceResultPayload(string ImageId, string ModelName, string ModelVersion, string PredictedDiseaseId, double Confidence, string? TopKJson);
+public record CreateInspectionPayload(string? Id, string PlotId, string InspectorId, DateTime? InspectionDate);
+public record CreateImagePayload(string? Id, string InspectionId, string FileUri, string? MimeType, int Width, int Height, string DeviceId);
+public record CreateObservationPayload(string? Id, string InspectionId, string DiseaseId, int SeverityLevel, decimal IncidencePercent, string? SourceType);
+public record CreateInferenceResultPayload(string? Id, string ImageId, string ModelName, string ModelVersion, string PredictedDiseaseId, double Confidence, string? TopKJson);
 public record BulkSyncPayload(
     string? DeviceId,
     List<CreateInspectionPayload>? Inspections,

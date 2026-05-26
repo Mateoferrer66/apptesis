@@ -30,3 +30,4 @@ C:\Users\mateo\OneDrive\Desktop\2026\MAESTRIAUNIR\MAESTRIAUNIR\APP TESIS\backend
 C:\Users\mateo\OneDrive\Desktop\2026\MAESTRIAUNIR\MAESTRIAUNIR\APP TESIS\backend\PlagasCafe.Api\obj\Debug\net9.0\PlagasCafe.Api.pdb
 C:\Users\mateo\OneDrive\Desktop\2026\MAESTRIAUNIR\MAESTRIAUNIR\APP TESIS\backend\PlagasCafe.Api\obj\Debug\net9.0\PlagasCafe.Api.genruntimeconfig.cache
 C:\Users\mateo\OneDrive\Desktop\2026\MAESTRIAUNIR\MAESTRIAUNIR\APP TESIS\backend\PlagasCafe.Api\obj\Debug\net9.0\ref\PlagasCafe.Api.dll
+C:\Users\mateo\OneDrive\Desktop\2026\MAESTRIAUNIR\MAESTRIAUNIR\APP TESIS\backend\PlagasCafe.Api\obj\Debug\net9.0\PlagasCafe.Api.sourcelink.json
