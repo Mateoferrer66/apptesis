@@ -14,14 +14,7 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowPwa",
         policy => policy
-            .WithOrigins(
-                "http://localhost:5173",
-                "https://localhost:5173",
-                "http://127.0.0.1:5173",
-                "http://localhost:8004",
-                "https://localhost:8004",
-                "http://127.0.0.1:8004"
-            )
+            .AllowAnyOrigin()
             .AllowAnyMethod()
             .AllowAnyHeader());
 });
@@ -34,7 +27,7 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
-app.UseHttpsRedirection();
+// app.UseHttpsRedirection();
 app.UseCors("AllowPwa");
 
 // Simulated In-Memory Database
@@ -77,6 +70,12 @@ var syncEventsDb = new List<SyncEventRecord>();
 // ==========================
 // ENDPOINTS
 // ==========================
+
+// ── ROOT ──────────────────────────────────────────────────────────────────────
+
+// GET /
+app.MapGet("/", () => Results.Ok(new { message = "AgroVision API is running", status = "OK", version = "v1.0" }))
+.WithName("Root");
 
 // ── AUTH ──────────────────────────────────────────────────────────────────────
 
