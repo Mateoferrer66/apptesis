@@ -1,6 +1,6 @@
 import { db } from './db';
 
-const API_URL = 'http://localhost:5089/api';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5089/api';
 
 /**
  * Sincroniza las inferencias pendientes con el backend .NET.

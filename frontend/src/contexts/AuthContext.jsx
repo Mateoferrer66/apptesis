@@ -27,7 +27,7 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     try {
       // Intentar login contra el backend
-      const API_URL = 'http://localhost:5089/api';
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5089/api';
       const response = await fetch(`${API_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
