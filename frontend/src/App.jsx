@@ -12,7 +12,6 @@ import { OrganizationsPage } from './pages/OrganizationsPage';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { getPlots } from './services/apiService';
 import { initModel } from './services/ModelService';
-import { DiseaseCatalogPage } from './pages/DiseaseCatalogPage';
 import { syncTelemetry } from './services/syncService';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Leaf, Cpu, Shield, CheckCircle } from 'lucide-react';
@@ -206,7 +205,6 @@ function AppContent() {
             <Route path="/lotes" element={<PlotsPage />} />
             <Route path="/inspecciones" element={<InspectionsPage />} />
             <Route path="/organizaciones" element={<OrganizationsPage />} />
-            <Route path="/enfermedades" element={<DiseaseCatalogPage />} />
           </Routes>
         </Layout>
       </BrowserRouter>

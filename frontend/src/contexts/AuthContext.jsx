@@ -32,13 +32,24 @@ export const AuthProvider = ({ children }) => {
 
       if (response.success) {
         const data = response.data;
+        // Aggressively search for token in response
+        let foundToken = null;
+        if (typeof data === 'string') foundToken = data;
+        else if (data) {
+          foundToken = data.token || data.Token || data.accessToken || data.access_token || data.jwt || data.jwtToken || data.bearer || data.Bearer;
+          if (!foundToken && data.data) {
+            foundToken = data.data.token || data.data.Token || data.data.accessToken || data.data.access_token;
+          }
+        }
+        
         const userData = {
-          id: data.id,
-          fullName: data.fullName,
-          email: data.email,
-          role: data.role,
-          organizationId: data.organizationId,
-          token: data.token,
+          id: data?.id || data?.Id || data?.userId || 'admin-id',
+          fullName: data?.fullName || data?.FullName || data?.email || 'Admin',
+          email: data?.email || data?.Email,
+          role: data?.role || data?.Role || 'Admin',
+          organizationId: data?.organizationId || data?.OrganizationId,
+          token: foundToken,
+          rawResponse: data // Store it so we can debug if needed
         };
         setUser(userData);
         localStorage.setItem('agrovision_user', JSON.stringify(userData));

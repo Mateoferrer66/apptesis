@@ -2,13 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { getModelInfo } from '../services/ModelService';
-import { getDiseaseCatalog } from '../services/apiService';
+import { getDiseaseCatalog, createDiseaseCatalog, updateDiseaseCatalog, deleteDiseaseCatalog } from '../services/apiService';
 import { getStats, clearAllData } from '../services/db';
 import { fetchLatestModelVersion } from '../services/syncService';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Settings, Cpu, HardDrive, Wifi, Server, Trash2, Shield,
-  ExternalLink, Coffee, BookOpen, Bug, Leaf, Globe, Smartphone
+  ExternalLink, Coffee, BookOpen, Bug, Leaf, Globe, Smartphone,
+  Plus, Edit2, X
 } from 'lucide-react';
 
 export const InfoPage = () => {
@@ -19,13 +20,16 @@ export const InfoPage = () => {
   const [serverVersion, setServerVersion] = useState(null);
   const [clearing, setClearing] = useState(false);
   const [diseases, setDiseases] = useState([]);
-
-  useEffect(() => {
-    const info = getModelInfo();
-    setModelInfo(info);
-    getStats().then(setStats);
-    fetchLatestModelVersion().then(setServerVersion);
-    
+  const [errorMsg, setErrorMsg] = useState('');
+  
+  // Modal states
+  const [showModal, setShowModal] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [formData, setFormData] = useState({ id: '', commonName: '', scientificName: '', category: 'insecto' });
+  const [submitting, setSubmitting] = useState(false);
+  
+  const fetchDiseases = () => {
+    setErrorMsg('');
     getDiseaseCatalog().then(res => {
       if (res.success && res.data) {
         let diseasesArray = [];
@@ -33,9 +37,36 @@ export const InfoPage = () => {
         else if (res.data.$values) diseasesArray = res.data.$values;
         else if (res.data.data && Array.isArray(res.data.data)) diseasesArray = res.data.data;
         else if (res.data.data && res.data.data.$values) diseasesArray = res.data.data.$values;
-        setDiseases(diseasesArray);
+        
+        if (diseasesArray.length === 0) {
+          setErrorMsg('El catálogo está vacío en la base de datos.');
+        } else {
+          setDiseases(diseasesArray);
+        }
+      } else {
+        console.error("fetchDiseases error:", res);
+        
+        // Debugging info
+        const userStr = localStorage.getItem('agrovision_user');
+        let debugInfo = '';
+        if (userStr) {
+          const user = JSON.parse(userStr);
+          debugInfo = ` | Token guardado: ${user.token ? 'Sí (empieza con ' + user.token.substring(0, 10) + ')' : 'NO'}`;
+          if (!user.token && user.rawResponse) {
+             debugInfo += ` | Respuesta Login RAW: ${JSON.stringify(user.rawResponse).substring(0, 50)}`;
+          }
+        }
+
+        setErrorMsg(res.error ? `Error: ${res.error}${debugInfo}` : `Error HTTP ${res.status || 'Desconocido'}${debugInfo}`);
       }
     });
+  };
+  useEffect(() => {
+    const info = getModelInfo();
+    setModelInfo(info);
+    getStats().then(setStats);
+    fetchLatestModelVersion().then(setServerVersion);
+    fetchDiseases();
   }, []);
 
   const handleClearData = async () => {
@@ -45,6 +76,67 @@ export const InfoPage = () => {
     const s = await getStats();
     setStats(s);
     setClearing(false);
+  };
+
+  const openModal = (disease = null) => {
+    if (disease) {
+      setIsEditing(true);
+      setFormData({
+        id: disease.id || '',
+        commonName: disease.commonName || '',
+        recommendation: disease.recommendation || ''
+      });
+    } else {
+      setIsEditing(false);
+      setFormData({ id: '', commonName: '', recommendation: '' });
+    }
+    setShowModal(true);
+  };
+
+  const handleSave = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    try {
+      const payload = { 
+        commonName: formData.commonName, 
+        recommendation: formData.recommendation 
+      };
+      
+      let res;
+      if (isEditing && formData.id) {
+        res = await updateDiseaseCatalog(formData.id, payload);
+      } else {
+        res = await createDiseaseCatalog(payload);
+      }
+      
+      if (!res.success) {
+        alert('Error del servidor: ' + (res.error?.title || res.error || 'Error desconocido al guardar'));
+        return;
+      }
+      
+      fetchDiseases();
+      setShowModal(false);
+    } catch (error) {
+      console.error('Error saving disease:', error);
+      alert('Hubo un error de red al guardar.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('¿Estás seguro de eliminar esta plaga?')) return;
+    try {
+      const res = await deleteDiseaseCatalog(id);
+      if (!res.success) {
+        alert('Error al eliminar: ' + (res.error?.title || res.error));
+        return;
+      }
+      fetchDiseases();
+    } catch (error) {
+      console.error('Error deleting disease:', error);
+      alert('Hubo un error de red al eliminar.');
+    }
   };
 
   return (
@@ -60,29 +152,7 @@ export const InfoPage = () => {
         </h2>
       </div>
 
-      {/* Admin Module */}
-      {user?.role === 'Admin' && (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="glass rounded-[24px] p-5 shadow-lg mb-5 border border-indigo-100/50"
-        >
-          <h3 className="text-sm font-extrabold text-indigo-700 mb-3 flex items-center gap-2">
-            <Shield className="w-4 h-4 text-indigo-500" />
-            Panel de Administración
-          </h3>
-          <p className="text-xs text-gray-600 mb-4 font-medium leading-relaxed">
-            Gestión centralizada de catálogos y configuraciones del sistema.
-          </p>
-          <button
-            onClick={() => navigate('/enfermedades')}
-            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-indigo-50 text-indigo-700 font-bold text-sm hover:bg-indigo-100 transition-all ring-1 ring-indigo-200/60"
-          >
-            <Bug className="w-4 h-4" />
-            Catálogo de Enfermedades
-          </button>
-        </motion.div>
-      )}
+
 
       {/* About Card */}
       <motion.div
@@ -133,47 +203,89 @@ export const InfoPage = () => {
         </div>
       </motion.div>
 
-      {/* Detectable Pests */}
+      {/* Catálogo de Enfermedades (CRUD) */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="glass rounded-[24px] p-5 shadow-lg mb-5"
+        className="glass rounded-[24px] p-5 shadow-lg mb-5 overflow-hidden"
       >
-        <h3 className="text-sm font-extrabold text-gray-700 mb-4 flex items-center gap-2">
-          <Bug className="w-4 h-4 text-amber-500" />
-          Plagas Detectables
-        </h3>
-        <div className="space-y-2.5">
-          {diseases.length === 0 ? (
-            <p className="text-xs text-gray-400 text-center py-2">Cargando catálogo...</p>
-          ) : (
-            diseases.map(disease => {
-              let risk = 'medium';
-              let color = '#d97706';
-              if (disease.id === 'healthy') { risk = 'none'; color = '#16a34a'; }
-              else if (disease.id === 'broca') { risk = 'critical'; color = '#dc2626'; }
-              else if (disease.id === 'roya') { risk = 'high'; color = '#ea580c'; }
-              
-              return (
-                <div key={disease.id} className="flex items-center gap-3 p-3 bg-white/50 rounded-xl">
-                  <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: color }} />
-                  <div className="flex-1">
-                    <p className="text-xs font-bold text-gray-800">{disease.commonName}</p>
-                    <p className="text-[11px] font-medium text-gray-400 italic">{disease.scientificName}</p>
-                  </div>
-                  <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-md ${
-                    risk === 'critical' ? 'bg-red-100 text-red-600' :
-                    risk === 'high' ? 'bg-orange-100 text-orange-600' :
-                    risk === 'medium' ? 'bg-amber-100 text-amber-600' :
-                    'bg-green-100 text-green-600'
-                  }`}>
-                    {risk === 'none' ? 'sano' : risk}
-                  </span>
-                </div>
-              );
-            })
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-extrabold text-gray-700 flex items-center gap-2">
+            <Bug className="w-4 h-4 text-amber-500" />
+            Catálogo de Plagas
+          </h3>
+          {(user?.role?.toLowerCase().includes('admin') || user?.role === 'Administrador') && (
+            <button
+              onClick={() => openModal()}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-bold hover:bg-indigo-700 transition-colors shadow-md shadow-indigo-600/30"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Nueva Plaga
+            </button>
           )}
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b border-gray-200/50">
+                <th className="pb-3 text-xs font-bold text-gray-500 uppercase tracking-wider pl-2">ID</th>
+                <th className="pb-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Nombre Plaga</th>
+                <th className="pb-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Recomendación</th>
+                {(user?.role?.toLowerCase().includes('admin') || user?.role === 'Administrador') && (
+                  <th className="pb-3 text-xs font-bold text-gray-500 uppercase tracking-wider text-right pr-2">Acciones</th>
+                )}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100/50">
+              {diseases.length === 0 ? (
+                <tr>
+                  <td colSpan="4" className="py-6 text-center text-xs font-medium text-gray-400">
+                    {errorMsg || 'No hay plagas registradas o cargando catálogo...'}
+                  </td>
+                </tr>
+              ) : (
+                diseases.map((disease) => {
+                  return (
+                    <tr key={disease.id} className="hover:bg-white/40 transition-colors group">
+                      <td className="py-3 pl-2 text-[10px] font-medium text-gray-400 max-w-[80px] truncate" title={disease.id}>{disease.id}</td>
+                      <td className="py-3 text-xs font-bold text-gray-800">
+                        {disease.commonName}
+                      </td>
+                      <td className="py-3 text-[11px] font-medium text-gray-500">
+                        {disease.recommendation ? (
+                           <div className="line-clamp-2" title={disease.recommendation}>{disease.recommendation}</div>
+                        ) : (
+                           <span className="italic text-gray-300">Sin recomendación</span>
+                        )}
+                      </td>
+                      {(user?.role?.toLowerCase().includes('admin') || user?.role === 'Administrador') && (
+                        <td className="py-3 pr-2 text-right">
+                          <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button
+                              onClick={() => openModal(disease)}
+                              className="p-1.5 text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-md transition-colors"
+                              title="Editar plaga"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(disease.id)}
+                              className="p-1.5 text-red-600 bg-red-50 hover:bg-red-100 rounded-md transition-colors"
+                              title="Eliminar plaga"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
         </div>
       </motion.div>
 
@@ -266,6 +378,81 @@ export const InfoPage = () => {
         </p>
         <p className="text-[10px] font-medium mt-1">Proyecto de Tesis — Maestría UNIR 2026</p>
       </div>
+
+      {/* CRUD Modal for Admin */}
+      <AnimatePresence>
+        {showModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+              onClick={() => setShowModal(false)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="relative bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl overflow-hidden"
+            >
+              <button onClick={() => setShowModal(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+              
+              <h3 className="text-xl font-black text-gray-900 mb-5">
+                {isEditing ? 'Editar Plaga' : 'Nueva Plaga'}
+              </h3>
+              
+              <form onSubmit={handleSave} className="space-y-4">
+                {!isEditing && (
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">ID (Clave Única)</label>
+                    <input
+                      required
+                      type="text"
+                      placeholder="Ej: araña_roja"
+                      className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all font-medium"
+                      value={formData.id}
+                      onChange={(e) => setFormData({...formData, id: e.target.value})}
+                    />
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Nombre Común</label>
+                  <input
+                    required
+                    type="text"
+                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all font-medium"
+                    value={formData.commonName}
+                    onChange={(e) => setFormData({...formData, commonName: e.target.value})}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Recomendación (Tratamiento/Manejo)</label>
+                  <textarea
+                    required
+                    rows="3"
+                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all font-medium"
+                    value={formData.recommendation}
+                    onChange={(e) => setFormData({...formData, recommendation: e.target.value})}
+                  />
+                </div>
+
+                <div className="pt-2">
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-bold shadow-lg shadow-indigo-600/30 transition-all disabled:opacity-50"
+                  >
+                    {submitting ? 'Guardando...' : 'Guardar Plaga'}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
