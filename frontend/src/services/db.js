@@ -14,14 +14,17 @@ import Dexie from 'dexie';
  *  - disease_catalog:    Catálogo de enfermedades/plagas conocidas
  *  - images:             Imágenes capturadas durante una inspección
  *  - observations:       Observaciones manuales con severidad
- *  - inference_results:  Resultados de inferencia IA sobre imágenes
+ *  - inference_results:  Resultados de inferencia sobre imágenes
  *  - devices:            Dispositivos registrados para sincronización
  *  - sync_events:        Eventos de sincronización por dispositivo
  *  - conflict_logs:      Registro de conflictos de sincronización
  */
 export const db = new Dexie('AgroVisionDB');
 
-db.version(2).stores({
+db.version(3).stores({
+  // === Almacén para blobs de imágenes pesadas ===
+  imagesStore: 'id',
+  
   // === Entidades del modelo de datos ===
 
   // Organizaciones cafeteras
@@ -51,7 +54,7 @@ db.version(2).stores({
   // Observaciones del inspector
   observations: 'id, inspection_id, disease_id, severity_level, incidence_percent, source_type',
 
-  // Resultados de inferencia IA
+  // Resultados de inferencia
   inference_results: 'id, image_id, model_name, model_version, predicted_disease_id, confidence, top_k_json',
 
   // Dispositivos registrados
@@ -208,7 +211,7 @@ export const logConflict = async (entityName, entityId, strategy) => {
 };
 
 /**
- * Guardar un resultado de inferencia IA vinculado a una imagen.
+ * Guardar un resultado de inferencia vinculado a una imagen.
  */
 export const saveInferenceResult = async (result) => {
   return db.inference_results.put({
@@ -237,5 +240,23 @@ export const seedDiseaseCatalog = async () => {
     { id: 'healthy', common_name: 'Planta Sana', scientific_name: 'Sin plagas detectadas', category: 'ninguna' },
   ];
 
-  await db.disease_catalog.bulkPut(diseases);
+  await db.disease_catalog.bulkAdd(diseases);
+};
+// =========================================================================
+// Helpers para almacenar y recuperar Blobs de imágenes (Imágenes pesadas)
+// =========================================================================
+
+/**
+ * Guarda un Blob de imagen en la tabla imagesStore con una clave (id) dada.
+ */
+export const saveImageBlob = async (id, blob) => {
+  return db.imagesStore.put({ id, blob });
+};
+
+/**
+ * Recupera un Blob de imagen de la tabla imagesStore dado su id.
+ */
+export const getImageBlob = async (id) => {
+  const record = await db.imagesStore.get(id);
+  return record ? record.blob : null;
 };

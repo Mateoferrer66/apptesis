@@ -61,15 +61,18 @@ export const CameraCapture = ({ onCapture, disabled }) => {
     const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
     setCapturedPreview(dataUrl);
 
-    const img = new Image();
-    img.src = dataUrl;
-    img.onload = () => {
-      onCapture(img, dataUrl);
-      setTimeout(() => {
-        setIsCapturing(false);
-      }, 1200);
-    };
+    canvas.toBlob((blob) => {
+      const img = new Image();
+      img.src = dataUrl;
+      img.onload = () => {
+        onCapture(img, dataUrl, blob);
+        setTimeout(() => {
+          setIsCapturing(false);
+        }, 1200);
+      };
+    }, 'image/jpeg', 0.85);
   };
+
 
   return (
     <div className="relative w-full max-w-md mx-auto">

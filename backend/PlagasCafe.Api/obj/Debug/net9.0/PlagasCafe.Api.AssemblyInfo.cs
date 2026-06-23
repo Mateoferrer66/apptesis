@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("PlagasCafe.Api")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+164135bfc968c00663167ff37c8091909c238843")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+9520dce5c34c9f7d33ef5b5dc76212dcd5b5c94e")]
 [assembly: System.Reflection.AssemblyProductAttribute("PlagasCafe.Api")]
 [assembly: System.Reflection.AssemblyTitleAttribute("PlagasCafe.Api")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

@@ -66,7 +66,7 @@ const createLocalModel = () => {
 };
 
 /**
- * Inicializa el motor de IA: configura el backend WebAssembly y carga el modelo.
+ * Inicializa el motor de análisis: configura el backend WebAssembly y carga el modelo.
  */
 export const initModel = async (onProgress) => {
   if (model) return true;
@@ -74,7 +74,7 @@ export const initModel = async (onProgress) => {
     onProgress?.('Configurando WebAssembly...');
     await tf.setBackend('wasm');
     await tf.ready();
-    console.log('[AgriSense AI] Backend activo:', tf.getBackend());
+    console.log('[AgroVision PWA] Backend activo:', tf.getBackend());
 
     onProgress?.('Construyendo modelo de clasificación...');
     model = createLocalModel();
@@ -86,11 +86,11 @@ export const initModel = async (onProgress) => {
     warmupResult.dispose();
     warmup.dispose();
 
-    console.log('[AgriSense AI] Modelo listo. Parámetros:', model.countParams());
-    onProgress?.('¡Motor de IA listo!');
+    console.log('[AgroVision PWA] Modelo listo. Parámetros:', model.countParams());
+    onProgress?.('¡Motor de análisis listo!');
     return true;
   } catch (error) {
-    console.error('[AgriSense AI] Error al inicializar:', error);
+    console.error('[AgroVision PWA] Error al inicializar:', error);
     onProgress?.('Error al cargar el modelo.');
     return false;
   }
@@ -146,7 +146,7 @@ export const predictPest = async (imageElement) => {
 };
 
 /**
- * Retorna métricas del motor IA.
+ * Retorna métricas del motor de análisis.
  */
 export const getModelInfo = () => {
   return {

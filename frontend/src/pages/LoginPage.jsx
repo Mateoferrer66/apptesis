@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Leaf, Mail, Lock, Eye, EyeOff, LogIn, AlertCircle, WifiOff, Cpu, Shield } from 'lucide-react';
+import { Leaf, Mail, Lock, Eye, EyeOff, LogIn, AlertCircle, WifiOff, Cpu, Shield, User as UserIcon, Briefcase, Building } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { getOrganizations, register } from '../services/apiService';
 
 export const LoginPage = () => {
   const { login } = useAuth();
@@ -11,22 +12,86 @@ export const LoginPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [isOfflineLogin, setIsOfflineLogin] = useState(false);
+  
+  const [isLoginMode, setIsLoginMode] = useState(true);
+  const [fullName, setFullName] = useState('');
+  const [role, setRole] = useState('Farmer');
+  const [organizationId, setOrganizationId] = useState('');
+  const [organizations, setOrganizations] = useState([]);
+
+  React.useEffect(() => {
+    const fetchOrgs = async () => {
+      try {
+        const res = await getOrganizations();
+        if (res.success && res.data) {
+          let orgsArray = [];
+          if (Array.isArray(res.data)) {
+            orgsArray = res.data;
+          } else if (res.data.$values) {
+            orgsArray = res.data.$values;
+          } else if (res.data.data && Array.isArray(res.data.data)) {
+            orgsArray = res.data.data;
+          } else if (res.data.data && res.data.data.$values) {
+            orgsArray = res.data.data.$values;
+          }
+          
+          setOrganizations(orgsArray);
+          if (orgsArray.length > 0) {
+            setOrganizationId(orgsArray[0].id);
+          }
+        }
+      } catch (e) {
+        console.error('Error fetching orgs:', e);
+      }
+    };
+    fetchOrgs();
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
 
-    const result = await login(email, password);
-    
-    if (!result.success) {
-      setError(result.error);
+    try {
+      if (isLoginMode) {
+        const result = await login(email, password);
+        
+        if (!result.success) {
+          setError(typeof result.error === 'string' ? result.error : (result.error?.title || result.error?.message || JSON.stringify(result.error) || 'Error de autenticación'));
+        }
+        if (result.offline) {
+          setIsOfflineLogin(true);
+        }
+      } else {
+        // If organizationId is empty, we send null to the API
+        const registerData = {
+          fullName,
+          email,
+          password,
+          role,
+          organizationId: organizationId || null
+        };
+        const result = await register(registerData);
+        
+        if (!result.success) {
+          const errMsg = typeof result.error === 'string' ? result.error : (result.error?.title || result.error?.message || JSON.stringify(result.error) || 'Error al registrar usuario');
+          setError(errMsg);
+        } else {
+          // Automatically login after successful registration, or switch to login mode
+          const loginResult = await login(email, password);
+          if (!loginResult.success) {
+             const errMsg = typeof loginResult.error === 'string' ? loginResult.error : (loginResult.error?.title || loginResult.error?.message || JSON.stringify(loginResult.error) || 'Error al iniciar sesión');
+             setError(`Registro exitoso, pero falló el inicio automático. Intente iniciar sesión. Detalle: ${errMsg}`);
+             setIsLoginMode(true);
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Error en handleSubmit:", err);
+      setError(err.message || "Ocurrió un error inesperado.");
+    } finally {
+      setIsLoading(false);
     }
-    if (result.offline) {
-      setIsOfflineLogin(true);
-    }
-
-    setIsLoading(false);
   };
 
   const fillDemoCredentials = () => {
@@ -90,10 +155,59 @@ export const LoginPage = () => {
         className="w-full max-w-sm px-5 z-10"
       >
         <div className="bg-white/[0.07] backdrop-blur-xl rounded-[28px] border border-white/[0.12] p-7 shadow-2xl shadow-black/20">
-          <h2 className="text-xl font-extrabold text-white mb-1">Iniciar Sesión</h2>
-          <p className="text-green-300/50 text-xs font-semibold mb-6">Ingrese sus credenciales para continuar</p>
+          <h2 className="text-xl font-extrabold text-white mb-1">{isLoginMode ? 'Iniciar Sesión' : 'Registrarse'}</h2>
+          <p className="text-green-300/50 text-xs font-semibold mb-6">
+            {isLoginMode ? 'Ingrese sus credenciales para continuar' : 'Cree una nueva cuenta'}
+          </p>
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            {!isLoginMode && (
+              <>
+                {/* Full Name */}
+                <div className="relative">
+                  <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-green-400/50" />
+                  <input
+                    id="register-fullname"
+                    type="text"
+                    placeholder="Nombre Completo"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    required={!isLoginMode}
+                    className="w-full bg-white/[0.06] border border-white/[0.1] rounded-2xl py-3.5 pl-12 pr-4 text-white text-sm font-medium placeholder:text-white/25 focus:outline-none focus:ring-2 focus:ring-green-500/40 focus:border-green-500/30 transition-all"
+                  />
+                </div>
+                {/* Role */}
+                <div className="relative">
+                  <Briefcase className="absolute left-4 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-green-400/50" />
+                  <select
+                    id="register-role"
+                    value={role}
+                    onChange={(e) => setRole(e.target.value)}
+                    className="w-full bg-white/[0.06] border border-white/[0.1] rounded-2xl py-3.5 pl-12 pr-4 text-white text-sm font-medium focus:outline-none focus:ring-2 focus:ring-green-500/40 focus:border-green-500/30 transition-all appearance-none"
+                  >
+                    <option value="Farmer" className="bg-green-900">Farmer</option>
+                    <option value="Admin" className="bg-green-900">Admin</option>
+                    <option value="Inspector" className="bg-green-900">Inspector</option>
+                    <option value="Technician" className="bg-green-900">Technician</option>
+                  </select>
+                </div>
+                {/* Organization */}
+                <div className="relative">
+                  <Building className="absolute left-4 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-green-400/50" />
+                  <select
+                    id="register-organization"
+                    value={organizationId}
+                    onChange={(e) => setOrganizationId(e.target.value)}
+                    className="w-full bg-white/[0.06] border border-white/[0.1] rounded-2xl py-3.5 pl-12 pr-4 text-white text-sm font-medium focus:outline-none focus:ring-2 focus:ring-green-500/40 focus:border-green-500/30 transition-all appearance-none"
+                  >
+                    <option value="" className="bg-green-900">Seleccione Organización...</option>
+                    {Array.isArray(organizations) && organizations.map(org => (
+                      <option key={org.id} value={org.id} className="bg-green-900">{org.name || org.id}</option>
+                    ))}
+                  </select>
+                </div>
+              </>
+            )}
             {/* Email */}
             <div className="relative">
               <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-green-400/50" />
@@ -156,10 +270,24 @@ export const LoginPage = () => {
               ) : (
                 <>
                   <LogIn className="w-4.5 h-4.5" />
-                  Ingresar
+                  {isLoginMode ? 'Ingresar' : 'Registrar'}
                 </>
               )}
             </button>
+            
+            {/* Toggle Mode */}
+            <div className="text-center mt-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsLoginMode(!isLoginMode);
+                  setError('');
+                }}
+                className="text-white/60 hover:text-white text-xs font-semibold underline-offset-4 hover:underline transition-all"
+              >
+                {isLoginMode ? '¿No tienes cuenta? Regístrate' : '¿Ya tienes cuenta? Iniciar Sesión'}
+              </button>
+            </div>
           </form>
 
           {/* Divider */}

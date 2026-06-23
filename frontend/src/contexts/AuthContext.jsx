@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { login as loginApi } from '../services/apiService';
 
 const AuthContext = createContext(null);
 
@@ -26,16 +27,11 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
-      // Intentar login contra el backend
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5089/api';
-      const response = await fetch(`${API_URL}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
+      // Intentar login contra el backend usando apiService
+      const response = await loginApi({ email, password });
 
-      if (response.ok) {
-        const data = await response.json();
+      if (response.success) {
+        const data = response.data;
         const userData = {
           id: data.id,
           fullName: data.fullName,
@@ -48,8 +44,7 @@ export const AuthProvider = ({ children }) => {
         localStorage.setItem('agrovision_user', JSON.stringify(userData));
         return { success: true };
       } else {
-        const err = await response.json().catch(() => ({}));
-        return { success: false, error: err.message || 'Credenciales inválidas' };
+        return { success: false, error: response.error?.message || response.error || 'Credenciales inválidas' };
       }
     } catch {
       // Modo offline: validar con credenciales demo

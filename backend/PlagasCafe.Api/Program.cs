@@ -28,6 +28,7 @@ if (app.Environment.IsDevelopment())
 }
 
 // app.UseHttpsRedirection();
+app.UseRouting();
 app.UseCors("AllowPwa");
 
 // Simulated In-Memory Database
@@ -276,6 +277,37 @@ app.MapPost("/api/inference-results", (CreateInferenceResultPayload payload) =>
     });
 })
 .WithName("CreateInferenceResult");
+
+// GET /api/inference-results/{imageId}
+app.MapGet("/api/inference-results/{imageId}", (string imageId) =>
+{
+    var result = inferenceResultsDb.FirstOrDefault(r => r.ImageId == imageId);
+    if (result == null) return Results.NotFound(new { message = "Resultado de inferencia no encontrado para la imagen solicitada." });
+
+    var disease = diseaseCatalog.FirstOrDefault(d => d.Id == result.PredictedDiseaseId);
+
+    // Map risk category based on domain logic or category.
+    string risk = "medium";
+    string color = "#ca8a04";
+    if (disease?.Id == "healthy") { risk = "none"; color = "#16a34a"; }
+    else if (disease?.Id == "broca") { risk = "critical"; color = "#dc2626"; }
+    else if (disease?.Id == "roya") { risk = "high"; color = "#ea580c"; }
+
+    return Results.Ok(new
+    {
+        id = result.Id,
+        imageId = result.ImageId,
+        pestType = disease?.CommonName ?? "Desconocido",
+        pestId = disease?.Id,
+        scientific = disease?.ScientificName ?? "",
+        risk = risk,
+        color = color,
+        confidence = result.Confidence,
+        inferenceTimeMs = 0, // Backend might not know this unless provided, return 0 or default
+        recommendation = disease?.Category == "ninguna" ? "Sano" : "Aplicar tratamiento o consultar experto"
+    });
+})
+.WithName("GetInferenceResultByImageId");
 
 // ── SYNC ─────────────────────────────────────────────────────────────────────
 

@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { getStats } from '../services/db';
 import { motion } from 'framer-motion';
-import { BarChart3, ShieldAlert, AlertTriangle, Bug, CheckCircle, TrendingUp, Database, CloudUpload, Activity } from 'lucide-react';
+import { BarChart3, ShieldAlert, AlertTriangle, Bug, CheckCircle, TrendingUp, Database, CloudUpload, Activity, FileText, Building, Map } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 export const DashboardPage = () => {
   const [stats, setStats] = useState(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     loadStats();
@@ -86,6 +88,48 @@ export const DashboardPage = () => {
           <p className="text-2xl font-black text-amber-800">{stats.pending}</p>
           <p className="text-[10px] font-bold uppercase tracking-wider text-amber-600/70 mt-0.5">Pendientes</p>
         </motion.div>
+      </div>
+
+      {/* Quick Access */}
+      <div className="mb-6">
+        <h3 className="text-sm font-extrabold text-gray-700 mb-3 tracking-tight">Acceso Rápido</h3>
+        <div className="grid grid-cols-3 gap-3">
+          <motion.button
+            onClick={() => navigate('/lotes')}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            className="flex flex-col items-center justify-center gap-2 p-3 bg-white rounded-2xl shadow-sm ring-1 ring-gray-100 hover:ring-green-300 transition-all"
+          >
+            <div className="p-2 bg-green-50 text-green-600 rounded-xl">
+              <Map className="w-5 h-5" />
+            </div>
+            <span className="text-[11px] font-bold text-gray-700">Lotes</span>
+          </motion.button>
+
+          <motion.button
+            onClick={() => navigate('/inspecciones')}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            className="flex flex-col items-center justify-center gap-2 p-3 bg-white rounded-2xl shadow-sm ring-1 ring-gray-100 hover:ring-indigo-300 transition-all"
+          >
+            <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
+              <FileText className="w-5 h-5" />
+            </div>
+            <span className="text-[11px] font-bold text-gray-700">Inspecciones</span>
+          </motion.button>
+
+          <motion.button
+            onClick={() => navigate('/organizaciones')}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            className="flex flex-col items-center justify-center gap-2 p-3 bg-white rounded-2xl shadow-sm ring-1 ring-gray-100 hover:ring-teal-300 transition-all"
+          >
+            <div className="p-2 bg-teal-50 text-teal-600 rounded-xl">
+              <Building className="w-5 h-5" />
+            </div>
+            <span className="text-[11px] font-bold text-gray-700">Organizaciones</span>
+          </motion.button>
+        </div>
       </div>
 
       {/* Risk Distribution */}

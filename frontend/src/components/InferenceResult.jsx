@@ -112,7 +112,7 @@ export const InferenceResult = ({ result, onClose }) => {
           <span className="text-[10px] font-black uppercase tracking-[0.12em] opacity-60">Recomendación Agrícola</span>
         </div>
         <p className="text-[13px] font-medium leading-relaxed opacity-80">
-          {recommendations[result.risk]}
+          {result.recommendation || recommendations[result.risk]}
         </p>
       </div>
     </motion.div>

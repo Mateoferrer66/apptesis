@@ -6,8 +6,13 @@ import { HistoryPage } from './pages/HistoryPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { InfoPage } from './pages/InfoPage';
 import { LoginPage } from './pages/LoginPage';
+import { PlotsPage } from './pages/PlotsPage';
+import { InspectionsPage } from './pages/InspectionsPage';
+import { OrganizationsPage } from './pages/OrganizationsPage';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { initModel } from './services/aiModelService';
+import { getPlots } from './services/apiService';
+import { initModel } from './services/ModelService';
+import { DiseaseCatalogPage } from './pages/DiseaseCatalogPage';
 import { syncTelemetry } from './services/syncService';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Leaf, Cpu, Shield, CheckCircle } from 'lucide-react';
@@ -15,6 +20,7 @@ import { Leaf, Cpu, Shield, CheckCircle } from 'lucide-react';
 function AppContent() {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [modelReady, setModelReady] = useState(false);
+  const [shouldRedirectPlots, setShouldRedirectPlots] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [isSyncing, setIsSyncing] = useState(false);
   const [showSplash, setShowSplash] = useState(true);
@@ -37,9 +43,19 @@ function AppContent() {
     };
 
     if (isAuthenticated) {
+      // Check for plots to redirect if empty
+      const checkPlots = async () => {
+        const res = await getPlots();
+        if (res.success && res.data && res.data.length === 0) {
+          setShouldRedirectPlots(true);
+        }
+      };
+
       setup();
+      checkPlots();
     } else {
       setShowSplash(false);
+      setShouldRedirectPlots(false);
     }
 
     return () => {
@@ -179,11 +195,18 @@ function AppContent() {
           onSync={handleSync}
           modelReady={modelReady}
         >
+          {shouldRedirectPlots && window.location.pathname === '/' && (
+            <div className="hidden">{window.location.href = '/lotes'}</div>
+          )}
           <Routes>
             <Route path="/" element={<ScanPage modelReady={modelReady} />} />
             <Route path="/historial" element={<HistoryPage />} />
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/info" element={<InfoPage />} />
+            <Route path="/lotes" element={<PlotsPage />} />
+            <Route path="/inspecciones" element={<InspectionsPage />} />
+            <Route path="/organizaciones" element={<OrganizationsPage />} />
+            <Route path="/enfermedades" element={<DiseaseCatalogPage />} />
           </Routes>
         </Layout>
       </BrowserRouter>

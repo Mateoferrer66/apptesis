@@ -43,11 +43,11 @@ export const Layout = ({ children, isOnline, isSyncing, onSync, modelReady }) =>
           {modelReady ? (
             <div className="hidden sm:flex items-center gap-1.5 text-[10px] font-bold text-green-700 bg-green-100/80 px-2.5 py-1.5 rounded-xl ring-1 ring-green-200/60">
               <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-              IA Activa
+              Modelo Activo
             </div>
           ) : (
             <div className="hidden sm:flex items-center gap-1.5 text-[10px] font-bold text-amber-700 bg-amber-100/80 px-2.5 py-1.5 rounded-xl ring-1 ring-amber-200/60 animate-pulse">
-              Cargando IA...
+              Cargando Modelo...
             </div>
           )}
 

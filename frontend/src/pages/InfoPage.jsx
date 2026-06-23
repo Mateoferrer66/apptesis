@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { getModelInfo, PEST_LABELS } from '../services/aiModelService';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import { getModelInfo } from '../services/ModelService';
+import { getDiseaseCatalog } from '../services/apiService';
 import { getStats, clearAllData } from '../services/db';
 import { fetchLatestModelVersion } from '../services/syncService';
 import { motion } from 'framer-motion';
@@ -9,16 +12,30 @@ import {
 } from 'lucide-react';
 
 export const InfoPage = () => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const [modelInfo, setModelInfo] = useState(null);
   const [stats, setStats] = useState(null);
   const [serverVersion, setServerVersion] = useState(null);
   const [clearing, setClearing] = useState(false);
+  const [diseases, setDiseases] = useState([]);
 
   useEffect(() => {
     const info = getModelInfo();
     setModelInfo(info);
     getStats().then(setStats);
     fetchLatestModelVersion().then(setServerVersion);
+    
+    getDiseaseCatalog().then(res => {
+      if (res.success && res.data) {
+        let diseasesArray = [];
+        if (Array.isArray(res.data)) diseasesArray = res.data;
+        else if (res.data.$values) diseasesArray = res.data.$values;
+        else if (res.data.data && Array.isArray(res.data.data)) diseasesArray = res.data.data;
+        else if (res.data.data && res.data.data.$values) diseasesArray = res.data.data.$values;
+        setDiseases(diseasesArray);
+      }
+    });
   }, []);
 
   const handleClearData = async () => {
@@ -39,9 +56,33 @@ export const InfoPage = () => {
           Información del Sistema
         </div>
         <h2 className="text-3xl font-black text-gray-900 tracking-tight">
-          Acerca de <span className="text-gradient">AgriSense</span>
+          Acerca de <span className="text-gradient">AgroVision</span>
         </h2>
       </div>
+
+      {/* Admin Module */}
+      {user?.role === 'Admin' && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="glass rounded-[24px] p-5 shadow-lg mb-5 border border-indigo-100/50"
+        >
+          <h3 className="text-sm font-extrabold text-indigo-700 mb-3 flex items-center gap-2">
+            <Shield className="w-4 h-4 text-indigo-500" />
+            Panel de Administración
+          </h3>
+          <p className="text-xs text-gray-600 mb-4 font-medium leading-relaxed">
+            Gestión centralizada de catálogos y configuraciones del sistema.
+          </p>
+          <button
+            onClick={() => navigate('/enfermedades')}
+            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-indigo-50 text-indigo-700 font-bold text-sm hover:bg-indigo-100 transition-all ring-1 ring-indigo-200/60"
+          >
+            <Bug className="w-4 h-4" />
+            Catálogo de Enfermedades
+          </button>
+        </motion.div>
+      )}
 
       {/* About Card */}
       <motion.div
@@ -54,7 +95,7 @@ export const InfoPage = () => {
             <Leaf className="w-7 h-7" />
           </div>
           <div>
-            <h3 className="text-lg font-black text-gray-900 tracking-tight">AgriSense AI</h3>
+            <h3 className="text-lg font-black text-gray-900 tracking-tight">AgroVision PWA</h3>
             <p className="text-xs font-bold text-green-700/70 uppercase tracking-wider mt-0.5">
               Detección de Plagas en Cafetales
             </p>
@@ -104,23 +145,35 @@ export const InfoPage = () => {
           Plagas Detectables
         </h3>
         <div className="space-y-2.5">
-          {PEST_LABELS.map(pest => (
-            <div key={pest.id} className="flex items-center gap-3 p-3 bg-white/50 rounded-xl">
-              <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: pest.color }} />
-              <div className="flex-1">
-                <p className="text-xs font-bold text-gray-800">{pest.name}</p>
-                <p className="text-[11px] font-medium text-gray-400 italic">{pest.scientific}</p>
-              </div>
-              <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-md ${
-                pest.risk === 'critical' ? 'bg-red-100 text-red-600' :
-                pest.risk === 'high' ? 'bg-orange-100 text-orange-600' :
-                pest.risk === 'medium' ? 'bg-amber-100 text-amber-600' :
-                'bg-green-100 text-green-600'
-              }`}>
-                {pest.risk === 'none' ? 'sano' : pest.risk}
-              </span>
-            </div>
-          ))}
+          {diseases.length === 0 ? (
+            <p className="text-xs text-gray-400 text-center py-2">Cargando catálogo...</p>
+          ) : (
+            diseases.map(disease => {
+              let risk = 'medium';
+              let color = '#d97706';
+              if (disease.id === 'healthy') { risk = 'none'; color = '#16a34a'; }
+              else if (disease.id === 'broca') { risk = 'critical'; color = '#dc2626'; }
+              else if (disease.id === 'roya') { risk = 'high'; color = '#ea580c'; }
+              
+              return (
+                <div key={disease.id} className="flex items-center gap-3 p-3 bg-white/50 rounded-xl">
+                  <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                  <div className="flex-1">
+                    <p className="text-xs font-bold text-gray-800">{disease.commonName}</p>
+                    <p className="text-[11px] font-medium text-gray-400 italic">{disease.scientificName}</p>
+                  </div>
+                  <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-md ${
+                    risk === 'critical' ? 'bg-red-100 text-red-600' :
+                    risk === 'high' ? 'bg-orange-100 text-orange-600' :
+                    risk === 'medium' ? 'bg-amber-100 text-amber-600' :
+                    'bg-green-100 text-green-600'
+                  }`}>
+                    {risk === 'none' ? 'sano' : risk}
+                  </span>
+                </div>
+              );
+            })
+          )}
         </div>
       </motion.div>
 
@@ -190,7 +243,7 @@ export const InfoPage = () => {
           {[
             { name: 'React 18', desc: 'UI Framework' },
             { name: 'Vite', desc: 'Build Tool' },
-            { name: 'TensorFlow.js', desc: 'Motor de IA' },
+            { name: 'TensorFlow.js', desc: 'Motor de Análisis' },
             { name: 'WebAssembly', desc: 'Aceleración' },
             { name: 'Tailwind CSS 4', desc: 'Estilos' },
             { name: '.NET 9', desc: 'Backend API' },
