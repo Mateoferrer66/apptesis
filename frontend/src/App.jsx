@@ -11,8 +11,9 @@ import { InspectionsPage } from './pages/InspectionsPage';
 import { OrganizationsPage } from './pages/OrganizationsPage';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { getPlots } from './services/apiService';
-import { initModel } from './services/ModelService';
-import { syncTelemetry } from './services/syncService';
+import { initModel, checkForModelUpdates } from './services/ModelService';
+import { syncAllPendingData } from './services/syncService';
+import { getPendingInspections } from './services/db';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Leaf, Cpu, Shield, CheckCircle } from 'lucide-react';
 
@@ -25,6 +26,16 @@ function AppContent() {
   const [showSplash, setShowSplash] = useState(true);
   const [loadingMessage, setLoadingMessage] = useState('Iniciando sistema...');
   const [syncToast, setSyncToast] = useState('');
+  const [pendingCount, setPendingCount] = useState(0);
+
+  const checkPendingData = async () => {
+    try {
+      const pending = await getPendingInspections();
+      setPendingCount(pending.length);
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   useEffect(() => {
     const handleOnline = () => { setIsOnline(true); handleSync(); };
@@ -37,6 +48,15 @@ function AppContent() {
       const ready = await initModel((msg) => setLoadingMessage(msg));
       setModelReady(ready);
       
+      setLoadingMessage('Buscando actualizaciones de IA...');
+      const updated = await checkForModelUpdates((msg) => setLoadingMessage(msg));
+      if (updated) {
+        setSyncToast('¡Nuevo modelo de IA activado!');
+        setTimeout(() => setSyncToast(''), 3500);
+      }
+      
+      checkPendingData();
+
       // Keep splash for at least 2.5s for a premium feel
       setTimeout(() => setShowSplash(false), 2500);
     };
@@ -66,11 +86,17 @@ function AppContent() {
   const handleSync = async () => {
     if (!navigator.onLine) return;
     setIsSyncing(true);
-    const result = await syncTelemetry();
+    const result = await syncAllPendingData();
     setIsSyncing(false);
+    
+    checkPendingData();
+    
     if (result.success && result.count > 0) {
-      setSyncToast(`${result.count} registros sincronizados`);
+      setSyncToast(`${result.count} inspecciones sincronizadas`);
       setTimeout(() => setSyncToast(''), 3500);
+    } else if (result.success && result.count === 0) {
+      setSyncToast(`Todo está al día`);
+      setTimeout(() => setSyncToast(''), 2000);
     }
   };
 
@@ -193,6 +219,7 @@ function AppContent() {
           isSyncing={isSyncing}
           onSync={handleSync}
           modelReady={modelReady}
+          pendingCount={pendingCount}
         >
           {shouldRedirectPlots && window.location.pathname === '/' && (
             <div className="hidden">{window.location.href = '/lotes'}</div>

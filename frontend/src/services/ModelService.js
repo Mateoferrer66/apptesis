@@ -66,6 +66,47 @@ const createLocalModel = () => {
 };
 
 /**
+ * Verifica si hay una nueva versión del modelo de IA en el servidor,
+ * la descarga y la almacena en caché (HU10, HU11).
+ */
+export const checkForModelUpdates = async (onProgress) => {
+  if (!navigator.onLine) return false;
+  try {
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5089/api';
+    const res = await fetch(`${API_URL}/models/latest`, { signal: AbortSignal.timeout(2000) });
+    if (!res.ok) return false;
+    
+    // Simulamos respuesta si el backend no la tiene estructurada aún
+    const latestModel = await res.json().catch(() => ({ version: 'v2.0.0' }));
+    const localVersion = localStorage.getItem('agrovision_model_version');
+    
+    if (!localVersion || latestModel.version !== localVersion) {
+      onProgress?.('Descargando nuevo modelo...');
+      
+      const MODEL_URL = import.meta.env.VITE_MODEL_URL || null;
+      if (MODEL_URL) {
+        const newModel = await tf.loadLayersModel(MODEL_URL);
+        await newModel.save('indexeddb://agrovision-model');
+        model = newModel;
+      } else {
+        // Fallback a simulación temporal si no hay URL real
+        await new Promise(r => setTimeout(r, 1500)); 
+        model = createLocalModel();
+        await model.save('indexeddb://agrovision-model');
+      }
+      
+      localStorage.setItem('agrovision_model_version', latestModel.version || 'v2.0.0');
+      onProgress?.('Modelo actualizado.');
+      return true;
+    }
+    return false;
+  } catch (error) {
+    console.error('[AgroVision PWA] Error verificando modelo:', error);
+    return false;
+  }
+};
+
+/**
  * Inicializa el motor de análisis: configura el backend WebAssembly y carga el modelo.
  */
 export const initModel = async (onProgress) => {
@@ -76,10 +117,16 @@ export const initModel = async (onProgress) => {
     await tf.ready();
     console.log('[AgroVision PWA] Backend activo:', tf.getBackend());
 
-    onProgress?.('Construyendo modelo de clasificación...');
-    model = createLocalModel();
+    try {
+      model = await tf.loadLayersModel('indexeddb://agrovision-model');
+      onProgress?.('Modelo cargado desde caché local.');
+    } catch (e) {
+      onProgress?.('Construyendo modelo base...');
+      model = createLocalModel();
+      await model.save('indexeddb://agrovision-model').catch(() => {});
+    }
 
-    // Warm-up run para pre-compilar los kernels WASM
+    // Warm-up run para pre-compilar los kernels WASM (Optimización CA01, CA02)
     onProgress?.('Optimizando rendimiento...');
     const warmup = tf.zeros([1, 96, 96, 3]);
     const warmupResult = model.predict(warmup);

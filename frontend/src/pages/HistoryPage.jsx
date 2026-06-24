@@ -1,13 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { getInspections, getInspectionImages } from '../services/apiService';
-import { getImageBlob } from '../services/db';
+import { getAllInspectionsWithDetails, getImageBlob } from '../services/db';
 import { motion, AnimatePresence } from 'framer-motion';
-import { History, Camera, CheckCircle, ChevronDown, Clock, Image as ImageIcon } from 'lucide-react';
+import { History, Camera, CheckCircle, ChevronDown, Clock, Image as ImageIcon, Cloud, CloudOff, AlertTriangle } from 'lucide-react';
 
 export const HistoryPage = () => {
   const [inspections, setInspections] = useState([]);
   const [expanded, setExpanded] = useState(null);
-  const [inspectionImages, setInspectionImages] = useState({});
   const [blobUrls, setBlobUrls] = useState({});
   const [isLoading, setIsLoading] = useState(true);
 
@@ -17,33 +15,30 @@ export const HistoryPage = () => {
 
   const loadInspections = async () => {
     setIsLoading(true);
-    const res = await getInspections();
-    if (res.success && res.data) {
-      setInspections(res.data);
+    try {
+      const data = await getAllInspectionsWithDetails();
+      setInspections(data);
+    } catch (error) {
+      console.error('Error cargando historial local:', error);
     }
     setIsLoading(false);
   };
 
-  const handleExpand = async (inspectionId) => {
-    if (expanded === inspectionId) {
+  const handleExpand = async (inspection) => {
+    if (expanded === inspection.id) {
       setExpanded(null);
       return;
     }
-    setExpanded(inspectionId);
+    setExpanded(inspection.id);
 
-    // If we haven't loaded images for this inspection yet
-    if (!inspectionImages[inspectionId]) {
-      const res = await getInspectionImages(inspectionId);
-      if (res.success && res.data) {
-        const images = res.data;
-        setInspectionImages(prev => ({ ...prev, [inspectionId]: images }));
-
-        // For each image, fetch the local Blob from IndexedDB
-        for (const img of images) {
-          const blob = await getImageBlob(img.fileUri);
+    // Pre-load all blobs for this inspection's images
+    if (inspection.images && inspection.images.length > 0) {
+      for (const img of inspection.images) {
+        if (!blobUrls[img.file_uri]) {
+          const blob = await getImageBlob(img.file_uri);
           if (blob) {
             const url = URL.createObjectURL(blob);
-            setBlobUrls(prev => ({ ...prev, [img.fileUri]: url }));
+            setBlobUrls(prev => ({ ...prev, [img.file_uri]: url }));
           }
         }
       }
@@ -66,13 +61,13 @@ export const HistoryPage = () => {
       <div className="mb-6">
         <div className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-indigo-600 bg-indigo-50 px-4 py-2 rounded-full mb-4 ring-1 ring-indigo-100">
           <History className="w-3.5 h-3.5" />
-          Registro Sincronizado
+          Registro Local-First
         </div>
         <h2 className="text-3xl font-black text-gray-900 tracking-tight">
           Historial de <span className="text-gradient">Inspecciones</span>
         </h2>
         <p className="text-gray-500 text-sm font-medium mt-2">
-          Recuperando datos desde el servidor central.
+          Inspecciones guardadas en tu dispositivo (disponible offline).
         </p>
       </div>
 
@@ -94,7 +89,8 @@ export const HistoryPage = () => {
         <div className="space-y-3">
           {inspections.map((inspection, index) => {
             const isExpanded = expanded === inspection.id;
-            const images = inspectionImages[inspection.id] || [];
+            const images = inspection.images || [];
+            const isSynced = inspection.sync_status === 'synced';
 
             return (
               <motion.div
@@ -105,19 +101,22 @@ export const HistoryPage = () => {
                 className="rounded-2xl border border-indigo-100 bg-white overflow-hidden shadow-sm"
               >
                 <button
-                  onClick={() => handleExpand(inspection.id)}
+                  onClick={() => handleExpand(inspection)}
                   className="w-full flex items-center gap-3 p-4 text-left hover:bg-gray-50 transition-colors"
                 >
-                  <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 text-indigo-600 bg-indigo-50">
-                    <CheckCircle className="w-6 h-6" />
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${isSynced ? 'text-indigo-600 bg-indigo-50' : 'text-amber-600 bg-amber-50'}`}>
+                    {isSynced ? <CheckCircle className="w-6 h-6" /> : <CloudOff className="w-6 h-6" />}
                   </div>
 
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-extrabold text-gray-800 truncate">Inspección en Lote {inspection.plotId?.split('-')[0] || 'Desconocido'}</p>
+                    <p className="text-sm font-extrabold text-gray-800 truncate flex items-center gap-2">
+                      Lote {inspection.plot_id?.split('-')[0] || inspection.plotId?.split('-')[0] || 'Desconocido'}
+                      {!isSynced && <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[9px] uppercase tracking-wider font-bold">Offline</span>}
+                    </p>
                     <div className="flex items-center gap-2 mt-1">
                       <span className="text-[11px] font-semibold text-gray-400 flex items-center gap-1">
                         <Clock className="w-3 h-3" />
-                        {formatDate(inspection.inspectionDate)} · {formatTime(inspection.inspectionDate)}
+                        {formatDate(inspection.inspection_date || inspection.inspectionDate)} · {formatTime(inspection.inspection_date || inspection.inspectionDate)}
                       </span>
                     </div>
                   </div>
@@ -144,23 +143,56 @@ export const HistoryPage = () => {
                         {images.length === 0 ? (
                           <p className="text-sm text-gray-400 italic">No hay imágenes asociadas.</p>
                         ) : (
-                          <div className="grid grid-cols-2 gap-3">
-                            {images.map(img => (
-                              <div key={img.id} className="relative aspect-square rounded-xl overflow-hidden bg-gray-200 ring-1 ring-black/5 shadow-sm">
-                                {blobUrls[img.fileUri] ? (
-                                  <img 
-                                    src={blobUrls[img.fileUri]} 
-                                    alt="Captura" 
-                                    className="w-full h-full object-cover"
-                                  />
-                                ) : (
-                                  <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400">
-                                    <Camera className="w-6 h-6 mb-1 opacity-50" />
-                                    <span className="text-[10px] font-medium">Sin Blob Local</span>
+                          <div className="grid grid-cols-1 gap-4">
+                            {images.map(img => {
+                               const inference = img.inference;
+                               let riskColor = 'text-green-600 bg-green-50 ring-green-200';
+                               let pestName = 'Planta Sana';
+                               
+                               if (inference) {
+                                 if (inference.predicted_disease_id === 'broca') riskColor = 'text-red-600 bg-red-50 ring-red-200';
+                                 else if (inference.predicted_disease_id === 'roya') riskColor = 'text-orange-600 bg-orange-50 ring-orange-200';
+                                 else if (inference.predicted_disease_id !== 'healthy') riskColor = 'text-amber-600 bg-amber-50 ring-amber-200';
+                                 
+                                 pestName = inference.predicted_disease_id; // Idealmente mapear al common_name si lo tuvieramos
+                               }
+
+                               return (
+                                <div key={img.id} className="flex flex-col sm:flex-row gap-3 bg-white p-3 rounded-2xl ring-1 ring-gray-100 shadow-sm">
+                                  <div className="relative w-full sm:w-28 aspect-square rounded-xl overflow-hidden bg-gray-200 shrink-0">
+                                    {blobUrls[img.file_uri] ? (
+                                      <img 
+                                        src={blobUrls[img.file_uri]} 
+                                        alt="Captura" 
+                                        className="w-full h-full object-cover"
+                                      />
+                                    ) : (
+                                      <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400">
+                                        <Camera className="w-6 h-6 mb-1 opacity-50" />
+                                        <span className="text-[10px] font-medium">Sin Blob Local</span>
+                                      </div>
+                                    )}
                                   </div>
-                                )}
-                              </div>
-                            ))}
+                                  
+                                  {inference ? (
+                                    <div className="flex-1 flex flex-col justify-center">
+                                      <p className={`inline-flex self-start items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider ring-1 ${riskColor} mb-2`}>
+                                        <AlertTriangle className="w-3 h-3" />
+                                        Plaga: {pestName}
+                                      </p>
+                                      <div className="space-y-1">
+                                        <p className="text-xs text-gray-500"><span className="font-bold text-gray-700">Confianza:</span> {(inference.confidence * 100).toFixed(1)}%</p>
+                                        <p className="text-xs text-gray-500 leading-snug"><span className="font-bold text-gray-700">Rec:</span> {inference.predicted_disease_id === 'healthy' ? 'Ninguna acción requerida.' : 'Aplicar control orgánico. Guardado localmente.'}</p>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div className="flex-1 flex items-center text-gray-400 text-xs italic">
+                                      Sin resultado de inferencia local.
+                                    </div>
+                                  )}
+                                </div>
+                               );
+                            })}
                           </div>
                         )}
                       </div>

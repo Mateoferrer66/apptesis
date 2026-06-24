@@ -216,13 +216,38 @@ export const logConflict = async (entityName, entityId, strategy) => {
 export const saveInferenceResult = async (result) => {
   return db.inference_results.put({
     id: result.id || crypto.randomUUID(),
-    image_id: result.image_id,
-    model_name: result.model_name,
-    model_version: result.model_version,
-    predicted_disease_id: result.predicted_disease_id,
+    image_id: result.image_id || result.imageId,
+    model_name: result.model_name || result.modelName,
+    model_version: result.model_version || result.modelVersion,
+    predicted_disease_id: result.predicted_disease_id || result.predictedDiseaseId,
     confidence: result.confidence,
-    top_k_json: result.top_k_json,
+    top_k_json: result.top_k_json || result.topKJson,
   });
+};
+
+/**
+ * Obtener todas las inspecciones con sus imágenes y resultados de inferencia.
+ * Base para el Historial Local-First.
+ */
+export const getAllInspectionsWithDetails = async () => {
+  const inspections = await db.inspections.orderBy('inspection_date').reverse().toArray();
+  const images = await db.images.toArray();
+  const inferences = await db.inference_results.toArray();
+  
+  const imagesByInspection = {};
+  images.forEach(img => {
+    if (!imagesByInspection[img.inspection_id]) imagesByInspection[img.inspection_id] = [];
+    const inference = inferences.find(inf => inf.image_id === img.file_uri || inf.image_id === img.id);
+    imagesByInspection[img.inspection_id].push({
+      ...img,
+      inference: inference || null
+    });
+  });
+
+  return inspections.map(insp => ({
+    ...insp,
+    images: imagesByInspection[insp.id] || []
+  }));
 };
 
 /**

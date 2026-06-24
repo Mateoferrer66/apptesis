@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { CameraCapture } from '../components/CameraCapture';
 import { InferenceResult } from '../components/InferenceResult';
 import { predictPest } from '../services/ModelService';
-import { saveInference, saveImageBlob, saveInferenceResult } from '../services/db';
+import { saveInference, saveImageBlob, saveInferenceResult, db } from '../services/db';
 import { getPlots, createInspection, createInspectionImage, createInferenceResult, getInferenceResultByImageId } from '../services/apiService';
 import { useAuth } from '../contexts/AuthContext';
 import { Activity, ScanLine, Shield, MapPin, CheckCircle, PlusCircle } from 'lucide-react';
@@ -47,16 +47,25 @@ export const ScanPage = ({ modelReady }) => {
     };
 
     const res = await createInspection(reqData);
+    let newInspection;
     if (res.success && res.data) {
-      setActiveInspection(res.data);
+      newInspection = res.data;
     } else {
       // Offline fallback: create local inspection
       const fallbackId = 'insp-' + crypto.randomUUID().split('-')[0];
-      setActiveInspection({
+      newInspection = {
         id: fallbackId,
         ...reqData
-      });
+      };
     }
+
+    // Save strictly to local DB so HistoryPage picks it up
+    await db.inspections.put({
+      ...newInspection,
+      sync_status: (res.success && res.data) ? 'synced' : 'pending'
+    });
+
+    setActiveInspection(newInspection);
     setIsCreatingInspection(false);
   };
 
@@ -72,11 +81,21 @@ export const ScanPage = ({ modelReady }) => {
       // 2. Local quick history (optional but useful for stats)
       await saveInference(prediction, dataUrl);
 
-      // 3. Save blob locally
+      // 3. Save blob locally and insert metadata to DB
       const imageIdStr = crypto.randomUUID().split('-')[0];
       const fileUri = `${activeInspection.id}-image-${imageIdStr}`;
       if (blob) {
         await saveImageBlob(fileUri, blob);
+        
+        await db.images.put({
+          id: fileUri,
+          inspection_id: activeInspection.id,
+          file_uri: fileUri,
+          mime_type: blob.type,
+          width: imageElement?.width || 0,
+          height: imageElement?.height || 0,
+          device_id: 'local-browser'
+        });
       }
 
       // 4. Send image to API via FormData (if online this will succeed, offline will fail)

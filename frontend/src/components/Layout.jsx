@@ -4,7 +4,7 @@ import { ScanLine, History, BarChart3, Settings, Leaf, Wifi, WifiOff, CloudUploa
 import { motion } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
 
-export const Layout = ({ children, isOnline, isSyncing, onSync, modelReady }) => {
+export const Layout = ({ children, isOnline, isSyncing, onSync, modelReady, pendingCount }) => {
   const { user, logout } = useAuth();
 
   const navItems = [
@@ -52,14 +52,21 @@ export const Layout = ({ children, isOnline, isSyncing, onSync, modelReady }) =>
           )}
 
           {/* Sync */}
-          <button
-            onClick={onSync}
-            disabled={!isOnline || isSyncing}
-            className={`p-2 rounded-xl transition-all ${isOnline ? 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100 ring-1 ring-indigo-100' : 'bg-gray-50 text-gray-400 ring-1 ring-gray-100'}`}
-            title="Sincronizar datos con servidor"
-          >
-            <CloudUpload className={`w-4.5 h-4.5 ${isSyncing ? 'animate-bounce' : ''}`} />
-          </button>
+          <div className="relative">
+            <button
+              onClick={onSync}
+              disabled={!isOnline || isSyncing}
+              className={`p-2 rounded-xl transition-all ${isOnline ? 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100 ring-1 ring-indigo-100' : 'bg-gray-50 text-gray-400 ring-1 ring-gray-100'}`}
+              title="Sincronizar datos con servidor"
+            >
+              <CloudUpload className={`w-4.5 h-4.5 ${isSyncing ? 'animate-bounce' : ''}`} />
+            </button>
+            {pendingCount > 0 && (
+              <div className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow-sm border border-white" title={`${pendingCount} pendientes`}>
+                {pendingCount > 9 ? '9+' : pendingCount}
+              </div>
+            )}
+          </div>
 
           {/* Online/Offline */}
           <div className={`p-2 rounded-xl shadow-sm ${isOnline ? 'bg-blue-50 text-blue-500 ring-1 ring-blue-100' : 'bg-gray-100 text-gray-400 ring-1 ring-gray-200'}`}>
