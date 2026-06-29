@@ -1,6 +1,7 @@
 import * as tf from '@tensorflow/tfjs';
 import '@tensorflow/tfjs-backend-wasm';
 import { setWasmPaths } from '@tensorflow/tfjs-backend-wasm';
+import { getCurrentModel, getHeaders, API_URL } from './apiService';
 
 setWasmPaths('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@4.22.0/dist/');
 
@@ -72,24 +73,25 @@ const createLocalModel = () => {
 export const checkForModelUpdates = async (onProgress) => {
   if (!navigator.onLine) return false;
   try {
-    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5089/api';
-    const res = await fetch(`${API_URL}/models/latest`, { signal: AbortSignal.timeout(2000) });
-    if (!res.ok) return false;
+    const res = await getCurrentModel();
+    if (!res.success) return false;
     
     // Simulamos respuesta si el backend no la tiene estructurada aún
-    const latestModel = await res.json().catch(() => ({ version: 'v2.0.0' }));
+    const latestModel = res.data || { version: 'v2.0.0' };
     const localVersion = localStorage.getItem('agrovision_model_version');
     
     if (!localVersion || latestModel.version !== localVersion) {
       onProgress?.('Descargando nuevo modelo...');
       
-      const MODEL_URL = import.meta.env.VITE_MODEL_URL || null;
-      if (MODEL_URL) {
-        const newModel = await tf.loadLayersModel(MODEL_URL);
+      try {
+        const MODEL_URL = `${API_URL}/models/current/model-json`;
+        const newModel = await tf.loadLayersModel(MODEL_URL, {
+          requestInit: { headers: getHeaders() }
+        });
         await newModel.save('indexeddb://agrovision-model');
         model = newModel;
-      } else {
-        // Fallback a simulación temporal si no hay URL real
+      } catch (err) {
+        console.error('Error descargando modelo remoto, usando fallback:', err);
         await new Promise(r => setTimeout(r, 1500)); 
         model = createLocalModel();
         await model.save('indexeddb://agrovision-model');

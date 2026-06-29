@@ -1,5 +1,5 @@
 import { db, getPendingInspections, getImageBlob, logConflict } from './db';
-import { createInspection, createInspectionImage, createInferenceResult } from './apiService';
+import { createInspection, createInspectionImage, createInferenceResult, syncBulkTelemetry, getCurrentModel } from './apiService';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5089/api';
 
@@ -74,10 +74,6 @@ export const syncAllPendingData = async () => {
   }
 };
 
-/**
- * Sincroniza las inferencias pendientes con el backend .NET.
- * Se ejecuta automáticamente al detectar conexión, o manualmente por el usuario.
- */
 export const syncTelemetry = async () => {
   try {
     const all = await db.inferences.toArray();
@@ -85,31 +81,20 @@ export const syncTelemetry = async () => {
 
     if (toSync.length === 0) return { success: true, count: 0 };
 
-    const payload = {
-      inferences: toSync.map(item => ({
+    let successCount = 0;
+    for (const item of toSync) {
+      const payload = {
         timestamp: item.timestamp,
         pestType: item.pestType,
         confidence: item.confidence
-      }))
-    };
-
-    const response = await fetch(`${API_URL}/telemetry`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-
-    if (response.ok) {
-      const ids = toSync.map(item => item.id);
-      await db.transaction('rw', db.inferences, async () => {
-        for (const id of ids) {
-          await db.inferences.update(id, { synced: true });
-        }
-      });
-      return { success: true, count: ids.length };
-    } else {
-      return { success: false, error: `HTTP ${response.status}` };
+      };
+      const response = await syncBulkTelemetry(payload);
+      if (response.success) {
+        await db.inferences.update(item.id, { synced: true });
+        successCount++;
+      }
     }
+    return { success: true, count: successCount };
   } catch (error) {
     console.warn('[Sync] Sin conexión al backend:', error.message);
     return { success: false, error: error.message };
@@ -121,8 +106,8 @@ export const syncTelemetry = async () => {
  */
 export const fetchLatestModelVersion = async () => {
   try {
-    const res = await fetch(`${API_URL}/models/latest`);
-    if (res.ok) return await res.json();
+    const res = await getCurrentModel();
+    if (res.success) return res.data;
     return null;
   } catch {
     return null;

@@ -3,7 +3,7 @@ export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5089/ap
 /**
  * Función auxiliar para obtener las cabeceras de autenticación
  */
-const getHeaders = (isFormData = false) => {
+export const getHeaders = (isFormData = false) => {
   const headers = {
     'ngrok-skip-browser-warning': 'true' // Para saltar la pantalla de advertencia de ngrok
   };
@@ -50,6 +50,10 @@ const fetchApi = async (endpoint, options = {}) => {
     }
     
     if (!response.ok) {
+      if (response.status === 401) {
+        window.dispatchEvent(new CustomEvent('auth-error'));
+        return { success: false, error: 'Sesión expirada o token inválido. Por favor, inicia sesión nuevamente.', status: 401 };
+      }
       return { success: false, error: data || `Error ${response.status}: ${response.statusText}`, status: response.status };
     }
     return { success: true, data };
@@ -60,6 +64,24 @@ const fetchApi = async (endpoint, options = {}) => {
     }
     return { success: false, error: error.message };
   }
+};
+
+// ==========================================
+// AiModel
+// ==========================================
+
+export const getCurrentModel = () => {
+  return fetchApi('/models/current', {
+    method: 'GET',
+    headers: getHeaders()
+  });
+};
+
+export const getCurrentModelJson = () => {
+  return fetchApi('/models/current/model-json', {
+    method: 'GET',
+    headers: getHeaders()
+  });
 };
 
 // ==========================================
@@ -133,6 +155,25 @@ export const createInspectionImage = (inspectionId, data) => {
 
 export const getInspectionImages = (inspectionId) => {
   return fetchApi(`/inspections/${inspectionId}/images`, {
+    method: 'GET',
+    headers: getHeaders()
+  });
+};
+
+// ==========================================
+// Observations
+// ==========================================
+
+export const createObservation = (data) => {
+  return fetchApi('/observations', {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify(data)
+  });
+};
+
+export const getObservationsByInspectionId = (inspectionId) => {
+  return fetchApi(`/observations/inspection/${inspectionId}`, {
     method: 'GET',
     headers: getHeaders()
   });
@@ -233,7 +274,66 @@ export const createInferenceResult = (data) => {
 };
 
 export const getInferenceResultByImageId = (imageId) => {
-  return fetchApi(`/inference-results/${imageId}`, {
+  return fetchApi(`/inference-results/image/${imageId}`, {
+    method: 'GET',
+    headers: getHeaders()
+  });
+};
+
+// ==========================================
+// Sync
+// ==========================================
+
+export const syncBulk = (data) => {
+  return fetchApi('/sync/bulk', {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify(data)
+  });
+};
+
+export const getSyncLogs = () => {
+  return fetchApi('/sync/logs', {
+    method: 'GET',
+    headers: getHeaders()
+  });
+};
+
+export const getSyncLogsByDevice = (deviceId) => {
+  return fetchApi(`/sync/logs/device/${deviceId}`, {
+    method: 'GET',
+    headers: getHeaders()
+  });
+};
+
+export const getLastSyncLogByDevice = (deviceId) => {
+  return fetchApi(`/sync/logs/device/${deviceId}/last`, {
+    method: 'GET',
+    headers: getHeaders()
+  });
+};
+
+// ==========================================
+// Telemetry
+// ==========================================
+
+export const syncBulkTelemetry = (data) => {
+  return fetchApi('/Telemetry', {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify(data)
+  });
+};
+
+export const getTelemetries = () => {
+  return fetchApi('/Telemetry', {
+    method: 'GET',
+    headers: getHeaders()
+  });
+};
+
+export const getTelemetryById = (id) => {
+  return fetchApi(`/Telemetry/${id}`, {
     method: 'GET',
     headers: getHeaders()
   });

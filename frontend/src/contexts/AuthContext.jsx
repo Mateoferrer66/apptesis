@@ -23,6 +23,14 @@ export const AuthProvider = ({ children }) => {
       }
     }
     setIsLoading(false);
+
+    const handleAuthError = () => {
+      setUser(null);
+      localStorage.removeItem('agrovision_user');
+    };
+
+    window.addEventListener('auth-error', handleAuthError);
+    return () => window.removeEventListener('auth-error', handleAuthError);
   }, []);
 
   const login = async (email, password) => {

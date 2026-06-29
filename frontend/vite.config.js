@@ -37,6 +37,21 @@ export default defineConfig({
       }
     })
   ],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('@tensorflow')) return 'tfjs';
+            if (id.includes('react') || id.includes('react-dom') || id.includes('react-router-dom')) return 'vendor';
+            if (id.includes('lucide-react') || id.includes('framer-motion') || id.includes('clsx') || id.includes('tailwind-merge')) return 'ui';
+            if (id.includes('dexie')) return 'db';
+            return 'modules';
+          }
+        }
+      }
+    }
+  },
   server: {
     port: 8004,
   },

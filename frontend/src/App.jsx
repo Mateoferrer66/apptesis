@@ -1,14 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Layout } from './components/Layout';
-import { ScanPage } from './pages/ScanPage';
-import { HistoryPage } from './pages/HistoryPage';
-import { DashboardPage } from './pages/DashboardPage';
-import { InfoPage } from './pages/InfoPage';
-import { LoginPage } from './pages/LoginPage';
-import { PlotsPage } from './pages/PlotsPage';
-import { InspectionsPage } from './pages/InspectionsPage';
-import { OrganizationsPage } from './pages/OrganizationsPage';
+
+const ScanPage = lazy(() => import('./pages/ScanPage').then(m => ({ default: m.ScanPage })));
+const HistoryPage = lazy(() => import('./pages/HistoryPage').then(m => ({ default: m.HistoryPage })));
+const DashboardPage = lazy(() => import('./pages/DashboardPage').then(m => ({ default: m.DashboardPage })));
+const InfoPage = lazy(() => import('./pages/InfoPage').then(m => ({ default: m.InfoPage })));
+const LoginPage = lazy(() => import('./pages/LoginPage').then(m => ({ default: m.LoginPage })));
+const PlotsPage = lazy(() => import('./pages/PlotsPage').then(m => ({ default: m.PlotsPage })));
+const InspectionsPage = lazy(() => import('./pages/InspectionsPage').then(m => ({ default: m.InspectionsPage })));
+const OrganizationsPage = lazy(() => import('./pages/OrganizationsPage').then(m => ({ default: m.OrganizationsPage })));
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { getPlots } from './services/apiService';
 import { initModel, checkForModelUpdates } from './services/ModelService';
@@ -224,15 +225,17 @@ function AppContent() {
           {shouldRedirectPlots && window.location.pathname === '/' && (
             <div className="hidden">{window.location.href = '/lotes'}</div>
           )}
-          <Routes>
-            <Route path="/" element={<ScanPage modelReady={modelReady} />} />
-            <Route path="/historial" element={<HistoryPage />} />
-            <Route path="/dashboard" element={<DashboardPage />} />
-            <Route path="/info" element={<InfoPage />} />
-            <Route path="/lotes" element={<PlotsPage />} />
-            <Route path="/inspecciones" element={<InspectionsPage />} />
-            <Route path="/organizaciones" element={<OrganizationsPage />} />
-          </Routes>
+          <Suspense fallback={<div className="flex items-center justify-center h-full p-10 mt-10"><div className="w-8 h-8 border-3 border-green-500 border-t-transparent rounded-full animate-spin"></div></div>}>
+            <Routes>
+              <Route path="/" element={<ScanPage modelReady={modelReady} />} />
+              <Route path="/historial" element={<HistoryPage />} />
+              <Route path="/dashboard" element={<DashboardPage />} />
+              <Route path="/info" element={<InfoPage />} />
+              <Route path="/lotes" element={<PlotsPage />} />
+              <Route path="/inspecciones" element={<InspectionsPage />} />
+              <Route path="/organizaciones" element={<OrganizationsPage />} />
+            </Routes>
+          </Suspense>
         </Layout>
       </BrowserRouter>
     </>

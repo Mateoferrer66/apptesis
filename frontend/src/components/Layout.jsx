@@ -3,9 +3,12 @@ import { NavLink } from 'react-router-dom';
 import { ScanLine, History, BarChart3, Settings, Leaf, Wifi, WifiOff, CloudUpload, LogOut, User } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
+import { usePWAInstall } from '../hooks/usePWAInstall';
+import { Download } from 'lucide-react';
 
 export const Layout = ({ children, isOnline, isSyncing, onSync, modelReady, pendingCount }) => {
   const { user, logout } = useAuth();
+  const { isInstallable, install } = usePWAInstall();
 
   const navItems = [
     { to: '/', icon: ScanLine, label: 'Escanear' },
@@ -69,9 +72,25 @@ export const Layout = ({ children, isOnline, isSyncing, onSync, modelReady, pend
           </div>
 
           {/* Online/Offline */}
-          <div className={`p-2 rounded-xl shadow-sm ${isOnline ? 'bg-blue-50 text-blue-500 ring-1 ring-blue-100' : 'bg-gray-100 text-gray-400 ring-1 ring-gray-200'}`}>
+          <div className={`hidden sm:flex p-2 rounded-xl shadow-sm ${isOnline ? 'bg-blue-50 text-blue-500 ring-1 ring-blue-100' : 'bg-gray-100 text-gray-400 ring-1 ring-gray-200'}`}>
             {isOnline ? <Wifi className="w-4.5 h-4.5" /> : <WifiOff className="w-4.5 h-4.5" />}
           </div>
+
+          {/* PWA Install */}
+          <button
+            onClick={() => {
+              if (isInstallable && install) {
+                install();
+              } else {
+                alert('Para instalar la aplicación:\n\n- En Android/Chrome: Toca los 3 puntos arriba a la derecha y selecciona "Instalar aplicación" o "Añadir a la pantalla de inicio".\n\n- En iPhone/Safari: Toca el ícono de Compartir (el cuadro con la flecha hacia arriba) y selecciona "Agregar a Inicio".');
+              }
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-md shadow-indigo-600/30 transition-all"
+            title="Instalar App"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Instalar</span>
+          </button>
 
           {/* Logout */}
           <button

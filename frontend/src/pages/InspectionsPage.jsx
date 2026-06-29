@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FileText, Plus, AlertCircle, RefreshCw, Calendar, MapPin } from 'lucide-react';
-import { getInspections, createInspection } from '../services/apiService';
+import { FileText, Plus, AlertCircle, RefreshCw, Calendar, MapPin, ChevronDown, Activity } from 'lucide-react';
+import { getInspections, createInspection, getObservationsByInspectionId } from '../services/apiService';
 
 export const InspectionsPage = () => {
   const [inspections, setInspections] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [isCreating, setIsCreating] = useState(false);
+  const [expanded, setExpanded] = useState(null);
+  const [observations, setObservations] = useState({});
+  const [loadingObs, setLoadingObs] = useState(false);
 
   const fetchInspections = async () => {
     setIsLoading(true);
@@ -24,6 +27,25 @@ export const InspectionsPage = () => {
   useEffect(() => {
     fetchInspections();
   }, []);
+
+  const handleExpand = async (id) => {
+    if (expanded === id) {
+      setExpanded(null);
+      return;
+    }
+    setExpanded(id);
+    if (!observations[id]) {
+      setLoadingObs(true);
+      const res = await getObservationsByInspectionId(id);
+      if (res.success) {
+        let obsData = [];
+        if (Array.isArray(res.data)) obsData = res.data;
+        else if (res.data?.$values) obsData = res.data.$values;
+        setObservations(prev => ({ ...prev, [id]: obsData }));
+      }
+      setLoadingObs(false);
+    }
+  };
 
   const handleCreateInspection = async () => {
     setIsCreating(true);
@@ -117,21 +139,65 @@ export const InspectionsPage = () => {
               key={insp.id}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center justify-between"
+              className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex flex-col"
             >
-              <div>
-                <h4 className="font-bold text-gray-900 text-sm flex items-center gap-1.5">
-                  <Calendar className="w-4 h-4 text-gray-400" />
-                  {new Date(insp.inspectionDate).toLocaleDateString()} - {new Date(insp.inspectionDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </h4>
-                <p className="text-xs text-gray-500 mt-1.5 flex items-center gap-1.5">
-                  <MapPin className="w-3.5 h-3.5" />
-                  ID: {insp.id.substring(0, 8)}...
-                </p>
+              <div 
+                className="flex items-center justify-between cursor-pointer"
+                onClick={() => handleExpand(insp.id)}
+              >
+                <div>
+                  <h4 className="font-bold text-gray-900 text-sm flex items-center gap-1.5">
+                    <Calendar className="w-4 h-4 text-gray-400" />
+                    {new Date(insp.inspectionDate).toLocaleDateString()} - {new Date(insp.inspectionDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </h4>
+                  <p className="text-xs text-gray-500 mt-1.5 flex items-center gap-1.5">
+                    <MapPin className="w-3.5 h-3.5" />
+                    ID: {insp.id.substring(0, 8)}...
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center">
+                    <FileText className="w-5 h-5 text-indigo-600" />
+                  </div>
+                  <ChevronDown className={`w-5 h-5 text-gray-400 transition-transform ${expanded === insp.id ? 'rotate-180' : ''}`} />
+                </div>
               </div>
-              <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center">
-                <FileText className="w-5 h-5 text-indigo-600" />
-              </div>
+
+              {/* Seccion de observaciones expansible */}
+              <AnimatePresence>
+                {expanded === insp.id && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="pt-4 mt-4 border-t border-gray-100">
+                      <h5 className="text-xs font-bold text-gray-700 uppercase tracking-wider flex items-center gap-1 mb-3">
+                        <Activity className="w-4 h-4 text-emerald-500" />
+                        Observaciones
+                      </h5>
+                      {loadingObs ? (
+                        <p className="text-xs text-gray-400 italic">Cargando observaciones...</p>
+                      ) : !observations[insp.id] || observations[insp.id].length === 0 ? (
+                        <p className="text-xs text-gray-400 italic">No hay observaciones registradas para esta inspección.</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {observations[insp.id].map(obs => (
+                            <div key={obs.id} className="bg-gray-50 rounded-xl p-3 flex justify-between items-center">
+                              <div>
+                                <p className="text-sm font-bold text-gray-800">Enfermedad ID: {obs.diseaseId?.substring(0,8) || 'Desconocida'}</p>
+                                <p className="text-[10px] text-gray-500 font-medium">Severidad: {obs.severityLevel} • Incidencia: {obs.incidencePercent}%</p>
+                              </div>
+                              <span className="text-[10px] px-2 py-1 rounded bg-indigo-100 text-indigo-700 font-bold uppercase">{obs.sourceType || 'Manual'}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </motion.div>
           ))}
         </div>

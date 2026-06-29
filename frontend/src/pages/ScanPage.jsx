@@ -23,12 +23,13 @@ export const ScanPage = ({ modelReady }) => {
     const fetchPlots = async () => {
       const res = await getPlots();
       if (res.success && res.data) {
-        setPlots(res.data);
+        const dataArr = Array.isArray(res.data) ? res.data : (res.data.$values || (res.data.data ? (Array.isArray(res.data.data) ? res.data.data : res.data.data.$values) : []));
+        setPlots(dataArr || []);
       } else {
         // Fallback for offline/demo if not found
         setPlots([
-          { id: 'plot-001', code: 'L-001', variety: 'Castillo' },
-          { id: 'plot-002', code: 'L-002', variety: 'Caturra' }
+          { id: 'plot-001', name: 'Lote 001', farmName: 'Finca Demo' },
+          { id: 'plot-002', name: 'Lote 002', farmName: 'Finca Demo' }
         ]);
       }
     };
@@ -211,9 +212,9 @@ export const ScanPage = ({ modelReady }) => {
               className="w-full bg-gray-50 border border-gray-200 text-gray-900 rounded-xl focus:ring-green-500 focus:border-green-500 block p-3 transition-colors"
             >
               <option value="">Seleccione un lote...</option>
-              {plots.map(plot => (
+              {plots?.map?.(plot => (
                 <option key={plot.id} value={plot.id}>
-                  {plot.code} - {plot.variety}
+                  {plot.name} - {plot.farmName || 'Sin Finca'}
                 </option>
               ))}
             </select>
@@ -238,7 +239,7 @@ export const ScanPage = ({ modelReady }) => {
             <CheckCircle className="w-5 h-5 text-green-600" />
             <div>
               <p className="text-[10px] font-bold text-green-600 uppercase">Inspección Activa</p>
-              <p className="text-sm font-bold text-gray-800">Lote: {plots.find(p => p.id === activeInspection.plotId)?.code || activeInspection.plotId}</p>
+              <p className="text-sm font-bold text-gray-800">Lote: {plots.find(p => p.id === activeInspection.plotId)?.name || activeInspection.plotId}</p>
             </div>
           </div>
           <button 

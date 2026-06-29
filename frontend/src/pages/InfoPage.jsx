@@ -2,19 +2,21 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { getModelInfo } from '../services/ModelService';
-import { getDiseaseCatalog, createDiseaseCatalog, updateDiseaseCatalog, deleteDiseaseCatalog } from '../services/apiService';
+import { getDiseaseCatalog, createDiseaseCatalog, updateDiseaseCatalog, deleteDiseaseCatalog, getSyncLogs } from '../services/apiService';
 import { getStats, clearAllData } from '../services/db';
 import { fetchLatestModelVersion } from '../services/syncService';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Settings, Cpu, HardDrive, Wifi, Server, Trash2, Shield,
-  ExternalLink, Coffee, BookOpen, Bug, Leaf, Globe, Smartphone,
-  Plus, Edit2, X
+  ExternalLink, Coffee, BookOpen, Bug, Leaf, Globe, Smartphone, Download,
+  Plus, Edit2, X, RefreshCw
 } from 'lucide-react';
+import { usePWAInstall } from '../hooks/usePWAInstall';
 
 export const InfoPage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { isInstallable, install } = usePWAInstall();
   const [modelInfo, setModelInfo] = useState(null);
   const [stats, setStats] = useState(null);
   const [serverVersion, setServerVersion] = useState(null);
@@ -27,6 +29,10 @@ export const InfoPage = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({ id: '', commonName: '', scientificName: '', category: 'insecto' });
   const [submitting, setSubmitting] = useState(false);
+  
+  // Sync Logs state
+  const [syncLogs, setSyncLogs] = useState([]);
+  const [loadingLogs, setLoadingLogs] = useState(false);
   
   const fetchDiseases = () => {
     setErrorMsg('');
@@ -67,7 +73,20 @@ export const InfoPage = () => {
     getStats().then(setStats);
     fetchLatestModelVersion().then(setServerVersion);
     fetchDiseases();
+    fetchLogs();
   }, []);
+
+  const fetchLogs = async () => {
+    setLoadingLogs(true);
+    const res = await getSyncLogs();
+    if (res.success) {
+      let logsArray = [];
+      if (Array.isArray(res.data)) logsArray = res.data;
+      else if (res.data?.$values) logsArray = res.data.$values;
+      setSyncLogs(logsArray.slice(0, 10)); // Just keep the latest 10
+    }
+    setLoadingLogs(false);
+  };
 
   const handleClearData = async () => {
     if (!window.confirm('¿Estás seguro de eliminar todos los registros locales? Esta acción no se puede deshacer.')) return;
@@ -183,6 +202,36 @@ export const InfoPage = () => {
           <span className="text-[10px] font-bold bg-blue-50 text-blue-700 px-2.5 py-1 rounded-lg ring-1 ring-blue-200/60">.NET 9 Backend</span>
         </div>
       </motion.div>
+
+      {/* PWA Install */}
+      <AnimatePresence>
+        {isInstallable && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 10 }}
+            className="glass rounded-[24px] p-5 shadow-lg mb-5 bg-gradient-to-br from-indigo-50 to-white ring-1 ring-indigo-100"
+          >
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="bg-indigo-100 p-2.5 rounded-xl text-indigo-600">
+                  <Download className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-extrabold text-gray-800">Instalar Aplicación</h3>
+                  <p className="text-[11px] font-medium text-gray-500 mt-0.5">Accede sin conexión y más rápido</p>
+                </div>
+              </div>
+              <button
+                onClick={install}
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-md shadow-indigo-600/30 transition-all"
+              >
+                Instalar
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* AI Engine */}
       <motion.div
@@ -367,6 +416,48 @@ export const InfoPage = () => {
               <p className="text-[10px] font-medium text-gray-400 mt-0.5">{tech.desc}</p>
             </div>
           ))}
+        </div>
+      </motion.div>
+
+      {/* Sync Logs */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3 }}
+        className="glass rounded-[24px] p-5 shadow-lg mb-5"
+      >
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-extrabold text-gray-700 flex items-center gap-2">
+            <RefreshCw className="w-4 h-4 text-blue-500" />
+            Registro de Sincronización
+          </h3>
+          <button
+            onClick={fetchLogs}
+            className="p-2 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 transition-colors"
+          >
+            <RefreshCw className={`w-4 h-4 ${loadingLogs ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
+        
+        <div className="space-y-2 max-h-48 overflow-y-auto">
+          {loadingLogs ? (
+             <p className="text-xs text-gray-400 italic text-center py-2">Cargando logs...</p>
+          ) : syncLogs.length === 0 ? (
+             <p className="text-xs text-gray-400 italic text-center py-2">No hay registros de sincronización disponibles.</p>
+          ) : (
+            syncLogs.map((log) => (
+              <div key={log.id} className="bg-white/50 p-3 rounded-xl border border-gray-100">
+                <div className="flex justify-between items-center mb-1">
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${log.status === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                    {log.status === 'success' ? 'Éxito' : 'Error'}
+                  </span>
+                  <span className="text-[10px] text-gray-400 font-medium">{new Date(log.syncTime).toLocaleString()}</span>
+                </div>
+                <p className="text-xs text-gray-600 font-medium">Dispositivo: {log.deviceId}</p>
+                <p className="text-[10px] text-gray-500 mt-1">{log.details}</p>
+              </div>
+            ))
+          )}
         </div>
       </motion.div>
 
