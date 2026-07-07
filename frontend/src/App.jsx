@@ -23,6 +23,7 @@ function AppContent() {
   const [modelReady, setModelReady] = useState(false);
   const [shouldRedirectPlots, setShouldRedirectPlots] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const toggleOnline = () => setIsOnline(prev => !prev);
   const [isSyncing, setIsSyncing] = useState(false);
   const [showSplash, setShowSplash] = useState(true);
   const [loadingMessage, setLoadingMessage] = useState('Iniciando sistema...');
@@ -87,17 +88,21 @@ function AppContent() {
   const handleSync = async () => {
     if (!navigator.onLine) return;
     setIsSyncing(true);
-    const result = await syncAllPendingData();
-    setIsSyncing(false);
-    
-    checkPendingData();
-    
-    if (result.success && result.count > 0) {
-      setSyncToast(`${result.count} inspecciones sincronizadas`);
+    try {
+      const { success, count, error } = await syncAllPendingData();
+      if (success) {
+        if (count > 0) {
+          setSyncToast(`¡Sincronización Exitosa! ${count} registros subidos.`);
+        } else {
+          setSyncToast('Todo está sincronizado correctamente.');
+        }
+        checkPendingData();
+      } else {
+        setSyncToast(`Error: ${error}`);
+      }
       setTimeout(() => setSyncToast(''), 3500);
-    } else if (result.success && result.count === 0) {
-      setSyncToast(`Todo está al día`);
-      setTimeout(() => setSyncToast(''), 2000);
+    } finally {
+      setIsSyncing(false);
     }
   };
 
@@ -215,10 +220,11 @@ function AppContent() {
 
       {/* Main App */}
       <BrowserRouter>
-        <Layout
-          isOnline={isOnline}
-          isSyncing={isSyncing}
+        <Layout 
+          isOnline={isOnline} 
+          isSyncing={isSyncing} 
           onSync={handleSync}
+          onToggleOnline={toggleOnline}
           modelReady={modelReady}
           pendingCount={pendingCount}
         >

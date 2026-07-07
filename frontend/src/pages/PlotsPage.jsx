@@ -13,7 +13,8 @@ export const PlotsPage = () => {
     setError('');
     const res = await getPlots();
     if (res.success && res.data) {
-      setPlots(res.data);
+      const dataArr = res.data.$values || res.data;
+      setPlots(Array.isArray(dataArr) ? dataArr : []);
     } else {
       setError(res.error || 'Error al obtener los lotes');
     }

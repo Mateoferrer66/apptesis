@@ -17,7 +17,8 @@ export const InspectionsPage = () => {
     setError('');
     const res = await getInspections();
     if (res.success && res.data) {
-      setInspections(res.data);
+      const dataArr = res.data.$values || res.data;
+      setInspections(Array.isArray(dataArr) ? dataArr : []);
     } else {
       setError(res.error || 'Error al obtener inspecciones');
     }

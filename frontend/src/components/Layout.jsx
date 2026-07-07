@@ -7,7 +7,7 @@ import { usePWAInstall } from '../hooks/usePWAInstall';
 import { Download } from 'lucide-react';
 import { AgroBot } from './AgroBot';
 
-export const Layout = ({ children, isOnline, isSyncing, onSync, modelReady, pendingCount }) => {
+export const Layout = ({ children, isOnline, isSyncing, onSync, onToggleOnline, modelReady, pendingCount }) => {
   const { user, logout } = useAuth();
   const { isInstallable, install } = usePWAInstall();
 
@@ -73,9 +73,13 @@ export const Layout = ({ children, isOnline, isSyncing, onSync, modelReady, pend
           </div>
 
           {/* Online/Offline */}
-          <div className={`hidden sm:flex p-2 rounded-xl shadow-sm ${isOnline ? 'bg-blue-50 text-blue-500 ring-1 ring-blue-100' : 'bg-gray-100 text-gray-400 ring-1 ring-gray-200'}`}>
+          <button 
+            onClick={onToggleOnline}
+            className={`hidden sm:flex p-2 rounded-xl shadow-sm transition-all cursor-pointer ${isOnline ? 'bg-blue-50 text-blue-500 hover:bg-blue-100 ring-1 ring-blue-100' : 'bg-gray-100 text-gray-400 hover:bg-gray-200 ring-1 ring-gray-200'}`}
+            title={isOnline ? 'Forzar Modo Offline' : 'Activar Modo Online'}
+          >
             {isOnline ? <Wifi className="w-4.5 h-4.5" /> : <WifiOff className="w-4.5 h-4.5" />}
-          </div>
+          </button>
 
           {/* PWA Install */}
           <button

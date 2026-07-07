@@ -13,7 +13,8 @@ export const OrganizationsPage = () => {
     setError('');
     const res = await getOrganizations();
     if (res.success && res.data) {
-      setOrganizations(res.data);
+      const dataArr = res.data.$values || res.data;
+      setOrganizations(Array.isArray(dataArr) ? dataArr : []);
     } else {
       setError(res.error || 'Error al obtener organizaciones');
     }

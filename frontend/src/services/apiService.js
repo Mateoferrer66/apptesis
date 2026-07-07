@@ -1,4 +1,4 @@
-export const API_URL = import.meta.env.VITE_API_URL || 'https://tfe-agrovisionpwa.onrender.com/api';
+export const API_URL = 'https://tfe-agrovisionpwa.onrender.com/api';
 
 /**
  * Función auxiliar para obtener las cabeceras de autenticación
