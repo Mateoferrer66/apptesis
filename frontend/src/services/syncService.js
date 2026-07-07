@@ -1,7 +1,7 @@
 import { db, getPendingInspections, getImageBlob, logConflict } from './db';
 import { syncBulk, getCurrentModel } from './apiService';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5089/api';
+const API_URL = import.meta.env.VITE_API_URL || 'https://tfe-agrovisionpwa.onrender.com/api';
 
 /**
  * Genera o recupera un ID de dispositivo para la sincronización.
