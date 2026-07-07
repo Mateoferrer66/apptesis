@@ -6,6 +6,7 @@ import { saveInference, saveImageBlob, saveInferenceResult, db } from '../servic
 import { getPlots, createInspection, createInspectionImage, createInferenceResult, getInferenceResultByImageId } from '../services/apiService';
 import { useAuth } from '../contexts/AuthContext';
 import { Activity, ScanLine, Shield, MapPin, CheckCircle, PlusCircle } from 'lucide-react';
+import { generateUUID } from '../utils/uuid';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export const ScanPage = ({ modelReady }) => {
@@ -40,34 +41,49 @@ export const ScanPage = ({ modelReady }) => {
     if (!selectedPlot) return;
     setIsCreatingInspection(true);
     
-    // Default inspection date
-    const reqData = {
-      plotId: selectedPlot,
-      inspectorId: user?.id || 'offline-demo-user',
-      inspectionDate: new Date().toISOString()
-    };
-
-    const res = await createInspection(reqData);
-    let newInspection;
-    if (res.success && res.data) {
-      newInspection = res.data;
-    } else {
-      // Offline fallback: create local inspection
-      const fallbackId = 'insp-' + crypto.randomUUID().split('-')[0];
-      newInspection = {
-        id: fallbackId,
-        ...reqData
+    try {
+      // Default inspection date
+      const reqData = {
+        plotId: selectedPlot,
+        inspectorId: user?.id || 'offline-demo-user',
+        inspectionDate: new Date().toISOString()
       };
+
+      const res = await createInspection(reqData);
+      let newInspection;
+      if (res.success && res.data) {
+        newInspection = res.data;
+      } else {
+        // Offline fallback: create local inspection safely
+        const fallbackId = generateUUID();
+        newInspection = {
+          id: fallbackId,
+          ...reqData
+        };
+      }
+
+      // Save strictly to local DB so HistoryPage picks it up
+      await db.inspections.put({
+        ...newInspection,
+        inspection_date: newInspection.inspectionDate || new Date().toISOString(),
+        sync_status: (res.success && res.data) ? 'synced' : 'pending'
+      });
+
+      setActiveInspection(newInspection);
+    } catch (error) {
+      console.error('Error al crear inspección:', error);
+      // Failsafe offline fallback
+      const fallbackId = generateUUID();
+      setActiveInspection({
+        id: fallbackId,
+        plotId: selectedPlot,
+        inspectorId: user?.id || 'offline-demo-user',
+        inspectionDate: new Date().toISOString(),
+        inspection_date: new Date().toISOString()
+      });
+    } finally {
+      setIsCreatingInspection(false);
     }
-
-    // Save strictly to local DB so HistoryPage picks it up
-    await db.inspections.put({
-      ...newInspection,
-      sync_status: (res.success && res.data) ? 'synced' : 'pending'
-    });
-
-    setActiveInspection(newInspection);
-    setIsCreatingInspection(false);
   };
 
   const handleCapture = async (imageElement, dataUrl, blob) => {
@@ -83,8 +99,8 @@ export const ScanPage = ({ modelReady }) => {
       await saveInference(prediction, dataUrl);
 
       // 3. Save blob locally and insert metadata to DB
-      const imageIdStr = crypto.randomUUID().split('-')[0];
-      const fileUri = `${activeInspection.id}-image-${imageIdStr}`;
+      const imageIdStr = generateUUID();
+      const fileUri = `${activeInspection.id}-image-${imageIdStr.split('-')[0]}`;
       if (blob) {
         await saveImageBlob(fileUri, blob);
         
@@ -119,7 +135,7 @@ export const ScanPage = ({ modelReady }) => {
       
       // 5.5 Guardar Observación Automáticamente
       const observationPayload = {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         inspection_id: activeInspection.id,
         disease_id: prediction.pestId,
         severity_level: prediction.risk === 'critical' ? 5 : (prediction.risk === 'high' ? 4 : (prediction.risk === 'medium' ? 3 : 1)),

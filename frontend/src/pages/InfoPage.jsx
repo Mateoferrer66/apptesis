@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { getModelInfo } from '../services/ModelService';
 import { getDiseaseCatalog, createDiseaseCatalog, updateDiseaseCatalog, deleteDiseaseCatalog, getSyncLogs } from '../services/apiService';
 import { getStats, clearAllData } from '../services/db';
+import { getCurrentModel, getCurrentModelJson } from '../services/apiService';
 import { fetchLatestModelVersion } from '../services/syncService';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -18,6 +19,7 @@ export const InfoPage = () => {
   const navigate = useNavigate();
   const { isInstallable, install } = usePWAInstall();
   const [modelInfo, setModelInfo] = useState(null);
+  const [remoteAiModel, setRemoteAiModel] = useState(null);
   const [stats, setStats] = useState(null);
   const [serverVersion, setServerVersion] = useState(null);
   const [clearing, setClearing] = useState(false);
@@ -72,9 +74,62 @@ export const InfoPage = () => {
     setModelInfo(info);
     getStats().then(setStats);
     fetchLatestModelVersion().then(setServerVersion);
+    fetchRemoteModelData();
     fetchDiseases();
     fetchLogs();
   }, []);
+
+  const fetchRemoteModelData = async () => {
+    try {
+      const resMeta = await getCurrentModel();
+      const resJson = await getCurrentModelJson();
+      
+      let params = 0;
+      let inputShape = '—';
+      let classes = '—';
+
+      if (resJson.success && resJson.data) {
+        const data = resJson.data;
+        // Parse Topology for Shape and Classes
+        const topology = data.modelTopology;
+        if (topology) {
+          const config = topology.model_config || topology.config;
+          if (config && config.layers) {
+            const layers = config.layers;
+            if (layers.length > 0) {
+              const firstLayer = layers[0].config;
+              if (firstLayer && firstLayer.batch_input_shape) {
+                inputShape = firstLayer.batch_input_shape.slice(1).join('x') + ' RGB';
+              }
+              const lastLayer = layers[layers.length - 1].config;
+              if (lastLayer && lastLayer.units) {
+                classes = lastLayer.units;
+              }
+            }
+          }
+        }
+        // Calculate params from weights manifest
+        if (data.weightsManifest) {
+          data.weightsManifest.forEach(manifest => {
+            if (manifest.weights) {
+              manifest.weights.forEach(w => {
+                params += w.shape.reduce((a, b) => a * b, 1);
+              });
+            }
+          });
+        }
+      }
+      
+      setRemoteAiModel({
+        metadata: resMeta.success ? resMeta.data : null,
+        params,
+        inputShape,
+        classes
+      });
+    } catch (e) {
+      console.error("Error fetching remote model:", e);
+    }
+  };
 
   const fetchLogs = async () => {
     setLoadingLogs(true);
@@ -246,9 +301,21 @@ export const InfoPage = () => {
         </h3>
         <div className="space-y-3">
           <InfoRow label="Backend de cómputo" value={modelInfo?.backend || '—'} />
-          <InfoRow label="Parámetros del modelo" value={modelInfo?.params?.toLocaleString() || '—'} />
-          <InfoRow label="Dimensión de entrada" value={modelInfo?.inputShape || '—'} />
-          <InfoRow label="Clases de clasificación" value={modelInfo?.classes || '—'} />
+          <InfoRow 
+            label="Parámetros del modelo" 
+            value={remoteAiModel?.params ? remoteAiModel.params.toLocaleString() : (modelInfo?.params?.toLocaleString() || '—')} 
+          />
+          <InfoRow 
+            label="Dimensión de entrada" 
+            value={remoteAiModel?.inputShape !== '—' ? remoteAiModel?.inputShape : (modelInfo?.inputShape || '—')} 
+          />
+          <InfoRow 
+            label="Clases de clasificación" 
+            value={remoteAiModel?.classes !== '—' ? remoteAiModel?.classes : (modelInfo?.classes || '—')} 
+          />
+          {remoteAiModel?.metadata && (
+             <InfoRow label="Versión remota" value={remoteAiModel.metadata.version || '—'} />
+          )}
         </div>
       </motion.div>
 

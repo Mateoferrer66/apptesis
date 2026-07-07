@@ -1,4 +1,5 @@
 import Dexie from 'dexie';
+import { generateUUID } from '../utils/uuid';
 
 /**
  * Base de datos IndexedDB para AgroVision PWA.
@@ -150,7 +151,7 @@ export const clearAllData = async () => {
  */
 export const saveInspection = async (inspection, images = [], observations = []) => {
   return db.transaction('rw', [db.inspections, db.images, db.observations], async () => {
-    const inspectionId = inspection.id || crypto.randomUUID();
+    const inspectionId = inspection.id || generateUUID();
     await db.inspections.put({
       ...inspection,
       id: inspectionId,
@@ -161,7 +162,7 @@ export const saveInspection = async (inspection, images = [], observations = [])
     for (const img of images) {
       await db.images.put({
         ...img,
-        id: img.id || crypto.randomUUID(),
+        id: img.id || generateUUID(),
         inspection_id: inspectionId,
       });
     }
@@ -169,7 +170,7 @@ export const saveInspection = async (inspection, images = [], observations = [])
     for (const obs of observations) {
       await db.observations.put({
         ...obs,
-        id: obs.id || crypto.randomUUID(),
+        id: obs.id || generateUUID(),
         inspection_id: inspectionId,
       });
     }
@@ -190,7 +191,7 @@ export const getPendingInspections = async () => {
  */
 export const logSyncEvent = async (deviceId, entityName, entityId, status) => {
   return db.sync_events.add({
-    id: crypto.randomUUID(),
+    id: generateUUID(),
     device_id: deviceId,
     entity_name: entityName,
     entity_id: entityId,
@@ -203,7 +204,7 @@ export const logSyncEvent = async (deviceId, entityName, entityId, status) => {
  */
 export const logConflict = async (entityName, entityId, strategy) => {
   return db.conflict_logs.add({
-    id: crypto.randomUUID(),
+    id: generateUUID(),
     entity_name: entityName,
     entity_id: entityId,
     resolution_strategy: strategy,
@@ -215,7 +216,7 @@ export const logConflict = async (entityName, entityId, strategy) => {
  */
 export const saveInferenceResult = async (result) => {
   return db.inference_results.put({
-    id: result.id || crypto.randomUUID(),
+    id: result.id || generateUUID(),
     image_id: result.image_id || result.imageId,
     model_name: result.model_name || result.modelName,
     model_version: result.model_version || result.modelVersion,

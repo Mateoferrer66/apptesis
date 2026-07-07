@@ -6,10 +6,12 @@ const API_URL = 'https://tfe-agrovisionpwa.onrender.com/api';
 /**
  * Genera o recupera un ID de dispositivo para la sincronización.
  */
+import { generateUUID } from '../utils/uuid';
+
 const getDeviceId = () => {
   let deviceId = localStorage.getItem('agrovision_device_id');
   if (!deviceId) {
-    deviceId = crypto.randomUUID();
+    deviceId = generateUUID();
     localStorage.setItem('agrovision_device_id', deviceId);
   }
   return deviceId;
@@ -41,22 +43,34 @@ export const syncAllPendingData = async () => {
     const toUpdateInspections = [];
     const toUpdateTelemetries = [];
     
+    const isUUID = (str) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(str);
+    
     // Mapear Inspecciones
     for (const insp of pendingInspections) {
+      let safeInspId = insp.id;
+      if (!isUUID(safeInspId)) {
+        safeInspId = generateUUID();
+        // Replace in DB because IndexedDB can't update primary keys
+        await db.inspections.delete(insp.id);
+        const updatedInsp = { ...insp, id: safeInspId };
+        await db.inspections.put(updatedInsp);
+      }
+
       inspectionsDto.push({
-        id: insp.id,
+        id: safeInspId,
         plotId: insp.plot_id || insp.plotId,
         inspectorId: insp.inspector_id || insp.inspectorId,
         inspectionDate: insp.inspection_date || insp.inspectionDate || new Date().toISOString()
       });
-      toUpdateInspections.push(insp.id);
+      toUpdateInspections.push({ old: insp.id, new: safeInspId });
       
       // Mapear Imágenes relacionadas
       const inspImages = allImages.filter(img => img.inspection_id === insp.id);
       for (const img of inspImages) {
+        const safeImgId = isUUID(img.id) ? img.id : generateUUID();
         imagesDto.push({
-          id: img.id || crypto.randomUUID(),
-          inspectionId: insp.id,
+          id: safeImgId,
+          inspectionId: safeInspId,
           fileUri: img.file_uri,
           mimeType: img.mime_type || 'image/jpeg',
           width: img.width || 0,
@@ -68,7 +82,7 @@ export const syncAllPendingData = async () => {
         const inference = allInferences.find(inf => inf.image_id === img.file_uri || inf.image_id === img.id);
         if (inference) {
           inferenceResultsDto.push({
-            id: inference.id,
+            id: inference.id || generateUUID(),
             imageId: img.file_uri,
             modelName: inference.model_name,
             modelVersion: inference.model_version,
@@ -86,8 +100,8 @@ export const syncAllPendingData = async () => {
       const inspObs = allObservations.filter(obs => obs.inspection_id === insp.id);
       for (const obs of inspObs) {
         observationsDto.push({
-          id: obs.id,
-          inspectionId: insp.id,
+          id: isUUID(obs.id) ? obs.id : generateUUID(),
+          inspectionId: safeInspId,
           diseaseId: obs.disease_id || obs.diseaseId,
           severityLevel: obs.severity_level || obs.severityLevel,
           incidencePercent: obs.incidence_percent || obs.incidencePercent,
@@ -100,7 +114,7 @@ export const syncAllPendingData = async () => {
     const pendingTelemetry = legacyInferences.filter(item => item.synced === false);
     for (const item of pendingTelemetry) {
       telemetriesDto.push({
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         timestamp: item.timestamp,
         pestType: item.pestType,
         confidence: item.confidence,
@@ -130,8 +144,8 @@ export const syncAllPendingData = async () => {
     
     if (bulkRes.success) {
       // Marcar todo como sincronizado en IndexedDB
-      for (const id of toUpdateInspections) {
-        await db.inspections.update(id, { sync_status: 'synced' });
+      for (const idObj of toUpdateInspections) {
+        await db.inspections.update(idObj.new, { sync_status: 'synced' });
       }
       for (const id of toUpdateTelemetries) {
         await db.inferences.update(id, { synced: true });
