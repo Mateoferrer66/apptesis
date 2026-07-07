@@ -116,9 +116,26 @@ export const ScanPage = ({ modelReady }) => {
         topKJson: JSON.stringify(prediction.allPredictions)
       };
       await saveInferenceResult(inferencePayload);
+      
+      // 5.5 Guardar Observación Automáticamente
+      const observationPayload = {
+        id: crypto.randomUUID(),
+        inspection_id: activeInspection.id,
+        disease_id: prediction.pestId,
+        severity_level: prediction.risk === 'critical' ? 5 : (prediction.risk === 'high' ? 4 : (prediction.risk === 'medium' ? 3 : 1)),
+        incidence_percent: prediction.confidence * 100,
+        source_type: 'AI'
+      };
+      await db.observations.put(observationPayload);
 
-      // 6. POST to backend (SQL Server)
-      const postRes = await createInferenceResult(inferencePayload);
+      // 6. POST to backend (SQL Server) if online
+      let postRes = { success: false };
+      if (navigator.onLine) {
+        postRes = await createInferenceResult(inferencePayload);
+        // Observación remota (opcional si syncBulk lo hará luego)
+        // Pero para inmediatez intentamos:
+        // await createObservation({...}); 
+      }
 
       // 7. GET from backend
       let finalResult = null;

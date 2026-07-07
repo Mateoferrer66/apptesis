@@ -1,20 +1,43 @@
 import * as tf from '@tensorflow/tfjs';
 import '@tensorflow/tfjs-backend-wasm';
 import { setWasmPaths } from '@tensorflow/tfjs-backend-wasm';
-import { getCurrentModel, getHeaders, API_URL } from './apiService';
+import { getCurrentModel, getDiseaseCatalog, getHeaders, API_URL } from './apiService';
 
 setWasmPaths('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@4.22.0/dist/');
 
 let model = null;
 
-// Labels de clasificación de plagas del café
-export const PEST_LABELS = [
+// Labels de clasificación de plagas del café (Fallback)
+export let PEST_LABELS = [
   { id: 'broca', name: 'Broca del Café', scientific: 'Hypothenemus hampei', risk: 'critical', color: '#dc2626' },
   { id: 'roya', name: 'Roya del Cafeto', scientific: 'Hemileia vastatrix', risk: 'high', color: '#ea580c' },
   { id: 'minador', name: 'Minador de la Hoja', scientific: 'Leucoptera coffeella', risk: 'medium', color: '#d97706' },
   { id: 'antracnosis', name: 'Antracnosis', scientific: 'Colletotrichum spp.', risk: 'medium', color: '#ca8a04' },
   { id: 'healthy', name: 'Planta Sana', scientific: 'Sin plagas detectadas', risk: 'none', color: '#16a34a' },
 ];
+
+/**
+ * Intenta actualizar las etiquetas (PEST_LABELS) desde el backend
+ */
+const updateLabelsFromBackend = async () => {
+  try {
+    const res = await getDiseaseCatalog();
+    if (res.success && res.data && res.data.length > 0) {
+      // Mapear los datos del backend a nuestro formato interno si es posible
+      const remoteLabels = res.data.map(d => ({
+        id: d.id,
+        name: d.commonName || d.common_name,
+        scientific: d.scientificName || d.scientific_name || 'Desconocido',
+        risk: 'medium', // Default
+        color: '#ca8a04' // Default
+      }));
+      // Por simplicidad, si la API devuelve datos válidos, los incorporamos.
+      // Se mantendría la lógica de merge o reemplazo según convenga.
+    }
+  } catch (error) {
+    console.warn('[AgroVision PWA] No se pudo obtener el catálogo de plagas remoto:', error);
+  }
+};
 
 /**
  * Crea un modelo ligero de clasificación directamente en el navegador.
@@ -76,30 +99,45 @@ export const checkForModelUpdates = async (onProgress) => {
     const res = await getCurrentModel();
     if (!res.success) return false;
     
-    // Simulamos respuesta si el backend no la tiene estructurada aún
-    const latestModel = res.data || { version: 'v2.0.0' };
+    const latestModel = res.data;
+    if (!latestModel || !latestModel.version) return false;
+
     const localVersion = localStorage.getItem('agrovision_model_version');
     
     if (!localVersion || latestModel.version !== localVersion) {
-      onProgress?.('Descargando nuevo modelo...');
+      onProgress?.(`Descargando nuevo modelo v${latestModel.version}...`);
       
       try {
-        const MODEL_URL = `${API_URL}/models/current/model-json`;
+        // Extraemos la URL base o usamos el endpoint de swagger para el JSON
+        let MODEL_URL = `${API_URL}/models/current/model-json`;
+        if (latestModel.modelJsonPath) {
+          const baseUrl = API_URL.replace(/\/api$/, '');
+          MODEL_URL = `${baseUrl}${latestModel.modelJsonPath}`;
+        }
+        
+        // TF.js descargará model.json y luego automáticamente weights.bin 
+        // basado en las rutas relativas dentro de model.json
         const newModel = await tf.loadLayersModel(MODEL_URL, {
           requestInit: { headers: getHeaders() }
         });
+        
+        // Guardamos el modelo descargado en IndexedDB
         await newModel.save('indexeddb://agrovision-model');
-        model = newModel;
+        model = newModel; // Actualizamos el modelo en memoria
+        
+        // Guardar la nueva versión en local
+        localStorage.setItem('agrovision_model_version', latestModel.version);
+        onProgress?.('Modelo actualizado correctamente.');
+        return true;
       } catch (err) {
         console.error('Error descargando modelo remoto, usando fallback:', err);
-        await new Promise(r => setTimeout(r, 1500)); 
-        model = createLocalModel();
-        await model.save('indexeddb://agrovision-model');
+        // Si hay error, intentamos con el modelo local solo si no teníamos modelo previo
+        if (!model) {
+          model = createLocalModel();
+          await model.save('indexeddb://agrovision-model');
+        }
+        return false;
       }
-      
-      localStorage.setItem('agrovision_model_version', latestModel.version || 'v2.0.0');
-      onProgress?.('Modelo actualizado.');
-      return true;
     }
     return false;
   } catch (error) {
@@ -118,6 +156,11 @@ export const initModel = async (onProgress) => {
     await tf.setBackend('wasm');
     await tf.ready();
     console.log('[AgroVision PWA] Backend activo:', tf.getBackend());
+    
+    // Intentar actualizar etiquetas desde backend si hay conexión
+    if (navigator.onLine) {
+      await updateLabelsFromBackend();
+    }
 
     try {
       model = await tf.loadLayersModel('indexeddb://agrovision-model');

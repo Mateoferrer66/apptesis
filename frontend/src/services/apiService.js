@@ -148,8 +148,8 @@ export const assignPlotToInspection = (id, data) => {
 export const createInspectionImage = (inspectionId, data) => {
   return fetchApi(`/inspections/${inspectionId}/images`, {
     method: 'POST',
-    headers: getHeaders(true),
-    body: data
+    headers: getHeaders(false),
+    body: JSON.stringify(data)
   });
 };
 

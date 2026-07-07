@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
 import { usePWAInstall } from '../hooks/usePWAInstall';
 import { Download } from 'lucide-react';
+import { AgroBot } from './AgroBot';
 
 export const Layout = ({ children, isOnline, isSyncing, onSync, modelReady, pendingCount }) => {
   const { user, logout } = useAuth();
@@ -151,6 +152,8 @@ export const Layout = ({ children, isOnline, isSyncing, onSync, modelReady, pend
           ))}
         </div>
       </nav>
+
+      <AgroBot />
     </div>
   );
 };

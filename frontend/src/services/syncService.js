@@ -1,10 +1,22 @@
 import { db, getPendingInspections, getImageBlob, logConflict } from './db';
-import { createInspection, createInspectionImage, createInferenceResult, syncBulkTelemetry, getCurrentModel } from './apiService';
+import { syncBulk, getCurrentModel } from './apiService';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5089/api';
 
 /**
- * Sincroniza todas las inspecciones, imágenes e inferencias pendientes.
+ * Genera o recupera un ID de dispositivo para la sincronización.
+ */
+const getDeviceId = () => {
+  let deviceId = localStorage.getItem('agrovision_device_id');
+  if (!deviceId) {
+    deviceId = crypto.randomUUID();
+    localStorage.setItem('agrovision_device_id', deviceId);
+  }
+  return deviceId;
+};
+
+/**
+ * Sincroniza todas las inspecciones, imágenes e inferencias pendientes usando SyncBulk.
  * CA01, CA02, CA03, CA04, CA05 (Sincronización Automática Robusta y Manejo de Errores)
  */
 export const syncAllPendingData = async () => {
@@ -12,91 +24,126 @@ export const syncAllPendingData = async () => {
   
   try {
     const pendingInspections = await getPendingInspections();
-    let syncedCount = 0;
-    
     const allImages = await db.images.toArray();
     const allInferences = await db.inference_results.toArray();
-
+    const allObservations = await db.observations.toArray();
+    const legacyInferences = await db.inferences.toArray(); // Telemetría
+    
+    const deviceId = getDeviceId();
+    
+    // Preparar DTOs
+    const inspectionsDto = [];
+    const imagesDto = [];
+    const observationsDto = [];
+    const inferenceResultsDto = [];
+    const telemetriesDto = [];
+    
+    const toUpdateInspections = [];
+    const toUpdateTelemetries = [];
+    
+    // Mapear Inspecciones
     for (const insp of pendingInspections) {
-      try {
-        // 1. Crear la inspección en el backend
-        const reqData = {
-          plotId: insp.plot_id || insp.plotId,
-          inspectorId: insp.inspector_id || insp.inspectorId,
-          inspectionDate: insp.inspection_date || insp.inspectionDate || new Date().toISOString()
-        };
+      inspectionsDto.push({
+        id: insp.id,
+        plotId: insp.plot_id || insp.plotId,
+        inspectorId: insp.inspector_id || insp.inspectorId,
+        inspectionDate: insp.inspection_date || insp.inspectionDate || new Date().toISOString()
+      });
+      toUpdateInspections.push(insp.id);
+      
+      // Mapear Imágenes relacionadas
+      const inspImages = allImages.filter(img => img.inspection_id === insp.id);
+      for (const img of inspImages) {
+        imagesDto.push({
+          id: img.id || crypto.randomUUID(),
+          inspectionId: insp.id,
+          fileUri: img.file_uri,
+          mimeType: img.mime_type || 'image/jpeg',
+          width: img.width || 0,
+          height: img.height || 0,
+          deviceId: deviceId
+        });
         
-        const inspRes = await createInspection(reqData);
-        if (!inspRes.success) throw new Error(inspRes.error || 'Failed to sync inspection');
-        
-        const realInspectionId = inspRes.data.id;
-        
-        // 2. Enviar sus imágenes asociadas
-        const inspImages = allImages.filter(img => img.inspection_id === insp.id);
-        for (const img of inspImages) {
-          const blob = await getImageBlob(img.file_uri);
-          if (blob) {
-            const formData = new FormData();
-            formData.append('File', blob, `image_sync.jpg`);
-            await createInspectionImage(realInspectionId, formData);
-            
-            // 3. Enviar inferencia
-            const inference = allInferences.find(inf => inf.image_id === img.file_uri);
-            if (inference) {
-              await createInferenceResult({
-                imageId: img.file_uri,
-                modelName: inference.model_name,
-                modelVersion: inference.model_version,
-                predictedDiseaseId: inference.predicted_disease_id,
-                confidence: inference.confidence,
-                topKJson: inference.top_k_json
-              });
-            }
-          }
+        // Mapear Inferencia de la imagen
+        const inference = allInferences.find(inf => inf.image_id === img.file_uri || inf.image_id === img.id);
+        if (inference) {
+          inferenceResultsDto.push({
+            id: inference.id,
+            imageId: img.file_uri,
+            modelName: inference.model_name,
+            modelVersion: inference.model_version,
+            predictedDiseaseId: inference.predicted_disease_id,
+            confidence: inference.confidence,
+            topKJson: inference.top_k_json,
+            inferenceTimeMs: inference.inferenceTimeMs || 0,
+            tfBackend: inference.tfBackend || 'wasm',
+            deviceMemoryGb: navigator.deviceMemory || 0
+          });
         }
-        
-        // 4. Marcar como sincronizado
-        await db.inspections.update(insp.id, { sync_status: 'synced' });
-        syncedCount++;
-      } catch (err) {
-        console.error(`[Sync] Error sincronizando inspección ${insp.id}:`, err);
-        await logConflict('inspection', insp.id, 'retry_later');
+      }
+      
+      // Mapear Observaciones
+      const inspObs = allObservations.filter(obs => obs.inspection_id === insp.id);
+      for (const obs of inspObs) {
+        observationsDto.push({
+          id: obs.id,
+          inspectionId: insp.id,
+          diseaseId: obs.disease_id || obs.diseaseId,
+          severityLevel: obs.severity_level || obs.severityLevel,
+          incidencePercent: obs.incidence_percent || obs.incidencePercent,
+          sourceType: obs.source_type || obs.sourceType || 'manual'
+        });
       }
     }
     
-    // Además, sincronizar la telemetría legacy
-    await syncTelemetry();
-    
-    return { success: true, count: syncedCount };
-  } catch (error) {
-    console.error('[Sync] Error fatal:', error);
-    return { success: false, error: error.message };
-  }
-};
-
-export const syncTelemetry = async () => {
-  try {
-    const all = await db.inferences.toArray();
-    const toSync = all.filter(item => item.synced === false);
-
-    if (toSync.length === 0) return { success: true, count: 0 };
-
-    let successCount = 0;
-    for (const item of toSync) {
-      const payload = {
+    // Mapear Telemetría Legacy
+    const pendingTelemetry = legacyInferences.filter(item => item.synced === false);
+    for (const item of pendingTelemetry) {
+      telemetriesDto.push({
+        id: crypto.randomUUID(),
         timestamp: item.timestamp,
         pestType: item.pestType,
-        confidence: item.confidence
-      };
-      const response = await syncBulkTelemetry(payload);
-      if (response.success) {
-        await db.inferences.update(item.id, { synced: true });
-        successCount++;
-      }
+        confidence: item.confidence,
+        inferenceTimeMs: item.inferenceTimeMs || 0,
+        inspectionCount: 1,
+        deviceHash: deviceId
+      });
+      toUpdateTelemetries.push(item.id);
     }
-    return { success: true, count: successCount };
+    
+    // Si no hay nada que sincronizar, retornamos éxito
+    if (inspectionsDto.length === 0 && telemetriesDto.length === 0) {
+      return { success: true, count: 0 };
+    }
+    
+    // Enviar el SyncBulk
+    const bulkPayload = {
+      deviceId,
+      inspections: inspectionsDto,
+      images: imagesDto,
+      observations: observationsDto,
+      inferenceResults: inferenceResultsDto,
+      telemetries: telemetriesDto
+    };
+    
+    const bulkRes = await syncBulk(bulkPayload);
+    
+    if (bulkRes.success) {
+      // Marcar todo como sincronizado en IndexedDB
+      for (const id of toUpdateInspections) {
+        await db.inspections.update(id, { sync_status: 'synced' });
+      }
+      for (const id of toUpdateTelemetries) {
+        await db.inferences.update(id, { synced: true });
+      }
+      
+      return { success: true, count: inspectionsDto.length + telemetriesDto.length };
+    } else {
+      throw new Error(bulkRes.error || 'Error en syncBulk');
+    }
+    
   } catch (error) {
-    console.warn('[Sync] Sin conexión al backend:', error.message);
+    console.error('[Sync] Error fatal:', error);
     return { success: false, error: error.message };
   }
 };
@@ -113,3 +160,4 @@ export const fetchLatestModelVersion = async () => {
     return null;
   }
 };
+
