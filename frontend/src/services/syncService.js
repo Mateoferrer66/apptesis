@@ -74,16 +74,19 @@ export const syncAllPendingData = async () => {
       }
 
       const validInspectorId = getValidUUID(insp.inspector_id || insp.inspectorId);
+      
+      if (validInspectorId === '00000000-0000-0000-0000-000000000000') {
+        console.warn(`[Sync] Skipping inspection ${insp.id} because it uses an offline/fake inspector ID. Marking as synced.`);
+        toUpdateInspections.push({ old: insp.id, new: safeInspId });
+        continue; // Skip this inspection and its children from being sent to server
+      }
 
       const inspectionDto = {
         id: safeInspId,
         plotId: validPlotId,
+        inspectorId: validInspectorId,
         inspectionDate: insp.inspection_date || insp.inspectionDate || new Date().toISOString()
       };
-      
-      if (validInspectorId !== '00000000-0000-0000-0000-000000000000') {
-        inspectionDto.inspectorId = validInspectorId;
-      }
 
       inspectionsDto.push(inspectionDto);
       toUpdateInspections.push({ old: insp.id, new: safeInspId });
