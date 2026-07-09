@@ -1,13 +1,13 @@
 import { db, getPendingInspections, getImageBlob, logConflict } from './db';
 import { syncBulk, getCurrentModel } from './apiService';
+import { generateUUID } from '../utils/uuid';
+import { PEST_LABELS } from './ModelService';
 
 const API_URL = 'https://tfe-agrovisionpwa.onrender.com/api';
 
 /**
  * Genera o recupera un ID de dispositivo para la sincronización.
  */
-import { generateUUID } from '../utils/uuid';
-
 const getDeviceId = () => {
   let deviceId = localStorage.getItem('agrovision_device_id');
   if (!deviceId) {
@@ -16,6 +16,8 @@ const getDeviceId = () => {
   }
   return deviceId;
 };
+
+const EMPTY_GUID = '00000000-0000-0000-0000-000000000000';
 
 /**
  * Sincroniza todas las inspecciones, imágenes e inferencias pendientes usando SyncBulk.
@@ -30,6 +32,7 @@ export const syncAllPendingData = async () => {
     const allInferences = await db.inference_results.toArray();
     const allObservations = await db.observations.toArray();
     const legacyInferences = await db.inferences.toArray(); // Telemetría
+    const diseaseCatalog = await db.disease_catalog.toArray();
     
     const deviceId = getDeviceId();
     
@@ -44,17 +47,33 @@ export const syncAllPendingData = async () => {
     const toUpdateTelemetries = [];
     
     const isUUID = (str) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(str);
-    
-    const legacyDiseaseMap = {
-      'broca': '11111111-1111-1111-1111-111111111111',
-      'roya': '22222222-2222-2222-2222-222222222222',
-      'minador': '33333333-3333-3333-3333-333333333333',
-      'antracnosis': '44444444-4444-4444-4444-444444444444',
-      'healthy': '55555555-5555-5555-5555-555555555555'
+    const getValidUUID = (id) => isUUID(id) ? id : EMPTY_GUID;
+
+    const getRealDiseaseId = (fakeIdOrName) => {
+      if (!fakeIdOrName) return EMPTY_GUID;
+      
+      let nameToSearch = fakeIdOrName;
+      // Buscar si es un ID falso mapeado en PEST_LABELS
+      const pestLabel = PEST_LABELS.find(p => p.id === fakeIdOrName || p.name === fakeIdOrName || p.pestType === fakeIdOrName);
+      if (pestLabel) {
+        nameToSearch = pestLabel.name;
+      }
+
+      // Buscar en el catálogo de la DB local usando el nombre
+      const catalogEntry = diseaseCatalog.find(c => 
+        (c.common_name && c.common_name.toLowerCase() === nameToSearch.toLowerCase()) || 
+        (c.commonName && c.commonName.toLowerCase() === nameToSearch.toLowerCase()) ||
+        (c.id === fakeIdOrName && isUUID(c.id)) // Por si ya era un ID real del catálogo
+      );
+
+      if (catalogEntry && isUUID(catalogEntry.id)) {
+        return catalogEntry.id;
+      }
+      return EMPTY_GUID;
     };
-    const getValidDiseaseId = (id) => isUUID(id) ? id : (legacyDiseaseMap[id] || '00000000-0000-0000-0000-000000000000');
-    const getValidUUID = (id) => isUUID(id) ? id : '00000000-0000-0000-0000-000000000000';
     
+    let hasIncompleteData = false;
+
     // Mapear Inspecciones
     for (const insp of pendingInspections) {
       let safeInspId = insp.id;
@@ -67,18 +86,18 @@ export const syncAllPendingData = async () => {
       }
 
       const validPlotId = getValidUUID(insp.plot_id || insp.plotId);
-      if (validPlotId === '00000000-0000-0000-0000-000000000000') {
-        console.warn(`[Sync] Skipping inspection ${insp.id} because it uses an offline/fallback plot ID that doesn't exist on the server. Marking as synced to prevent infinite retry.`);
-        toUpdateInspections.push({ old: insp.id, new: safeInspId });
-        continue; // Skip this inspection and its children from being sent to server
+      if (validPlotId === EMPTY_GUID) {
+        console.warn(`[Sync] Skipping inspection ${insp.id}: Invalid Plot ID.`);
+        hasIncompleteData = true;
+        continue;
       }
 
       const validInspectorId = getValidUUID(insp.inspector_id || insp.inspectorId);
       
-      if (validInspectorId === '00000000-0000-0000-0000-000000000000') {
-        console.warn(`[Sync] Skipping inspection ${insp.id} because it uses an offline/fake inspector ID. Marking as synced.`);
-        toUpdateInspections.push({ old: insp.id, new: safeInspId });
-        continue; // Skip this inspection and its children from being sent to server
+      if (validInspectorId === EMPTY_GUID) {
+        console.warn(`[Sync] Skipping inspection ${insp.id}: Invalid Inspector ID. Record not sent.`);
+        hasIncompleteData = true;
+        continue; 
       }
 
       const inspectionDto = {
@@ -108,16 +127,17 @@ export const syncAllPendingData = async () => {
         // Mapear Inferencia de la imagen
         const inference = allInferences.find(inf => inf.image_id === img.file_uri || inf.image_id === img.id);
         if (inference) {
-          const validPredictedDiseaseId = getValidDiseaseId(inference.predicted_disease_id);
-          if (validPredictedDiseaseId === '00000000-0000-0000-0000-000000000000' || validPredictedDiseaseId.startsWith('1111') || validPredictedDiseaseId.startsWith('2222') || validPredictedDiseaseId.startsWith('3333') || validPredictedDiseaseId.startsWith('4444') || validPredictedDiseaseId.startsWith('5555')) {
-             console.warn('[Sync] Skipping inference result due to fake disease ID:', validPredictedDiseaseId);
+          const realPredictedDiseaseId = getRealDiseaseId(inference.predicted_disease_id || inference.predictedDiseaseId);
+          if (realPredictedDiseaseId === EMPTY_GUID) {
+             console.warn(`[Sync] Skipping inference result ${inference.id}: Real Disease ID not found in catalog.`);
+             hasIncompleteData = true;
           } else {
             const inferenceDto = {
               id: isUUID(inference.id) ? inference.id : generateUUID(),
               imageId: safeImgId,
               modelName: inference.model_name || 'broca_detect_v1',
               modelVersion: inference.model_version || 'v1.0.0',
-              predictedDiseaseId: validPredictedDiseaseId,
+              predictedDiseaseId: realPredictedDiseaseId,
               confidence: inference.confidence || 0,
               topKJson: inference.top_k_json || '[]',
               inferenceTimeMs: inference.inferenceTimeMs || 0,
@@ -132,14 +152,15 @@ export const syncAllPendingData = async () => {
       // Mapear Observaciones
       const inspObs = allObservations.filter(obs => obs.inspection_id === insp.id);
       for (const obs of inspObs) {
-        const validDiseaseId = getValidDiseaseId(obs.disease_id || obs.diseaseId);
-        if (validDiseaseId === '00000000-0000-0000-0000-000000000000' || validDiseaseId.startsWith('1111') || validDiseaseId.startsWith('2222') || validDiseaseId.startsWith('3333') || validDiseaseId.startsWith('4444') || validDiseaseId.startsWith('5555')) {
-           console.warn('[Sync] Skipping observation due to fake disease ID:', validDiseaseId);
+        const realDiseaseId = getRealDiseaseId(obs.disease_id || obs.diseaseId);
+        if (realDiseaseId === EMPTY_GUID) {
+           console.warn(`[Sync] Skipping observation ${obs.id}: Real Disease ID not found in catalog.`);
+           hasIncompleteData = true;
         } else {
           const obsDto = {
             id: isUUID(obs.id) ? obs.id : generateUUID(),
             inspectionId: safeInspId,
-            diseaseId: validDiseaseId,
+            diseaseId: realDiseaseId,
             severityLevel: obs.severity_level || obs.severityLevel || 1,
             incidencePercent: obs.incidence_percent || obs.incidencePercent || 0,
             sourceType: obs.source_type || obs.sourceType || 'Manual'
@@ -166,9 +187,18 @@ export const syncAllPendingData = async () => {
     
     // Si no hay nada que sincronizar, retornamos éxito
     if (inspectionsDto.length === 0 && telemetriesDto.length === 0) {
+      if (hasIncompleteData) {
+        return { success: false, error: 'Existen datos incompletos (IDs faltantes). Inicie sesión y asegúrese de tener los catálogos descargados.' };
+      }
       return { success: true, count: 0 };
     }
     
+    if (hasIncompleteData) {
+      // Registramos el error localmente
+      console.error('[Sync] Sincronización abortada por datos incompletos (EMPTY_GUID detectado).');
+      return { success: false, error: 'Existen datos incompletos para sincronizar. Por favor, asegúrese de estar logueado con un usuario válido y tener el catálogo de enfermedades actualizado.' };
+    }
+
     // Enviar el SyncBulk
     const bulkPayload = {
       deviceId,
