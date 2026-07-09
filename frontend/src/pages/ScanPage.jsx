@@ -3,7 +3,7 @@ import { CameraCapture } from '../components/CameraCapture';
 import { InferenceResult } from '../components/InferenceResult';
 import { predictPest } from '../services/ModelService';
 import { saveInference, saveImageBlob, saveInferenceResult, db } from '../services/db';
-import { getPlots, createInspection, createInspectionImage, createInferenceResult, getInferenceResultByImageId } from '../services/apiService';
+import { getPlots, createInspection, createInspectionImage, createInferenceResult } from '../services/apiService';
 import { useAuth } from '../contexts/AuthContext';
 import { Activity, ScanLine, Shield, MapPin, CheckCircle, PlusCircle } from 'lucide-react';
 import { generateUUID } from '../utils/uuid';
@@ -41,50 +41,48 @@ export const ScanPage = ({ modelReady }) => {
     if (!selectedPlot) return;
     setIsCreatingInspection(true);
     
+    const inspectionId = generateUUID();
+    const inspectionDate = new Date().toISOString();
+    const inspectorId = user?.id || '00000000-0000-0000-0000-000000000000';
+
+    // Build the local object first — this always works
+    const localInspection = {
+      id: inspectionId,
+      plotId: selectedPlot,
+      inspectorId: inspectorId,
+      inspectionDate: inspectionDate,
+      inspection_date: inspectionDate,
+      sync_status: 'pending'
+    };
+
     try {
-      // Default inspection date
-      const reqData = {
-        plotId: selectedPlot,
-        inspectorId: user?.id || '00000000-0000-0000-0000-000000000000',
-        inspectionDate: new Date().toISOString()
-      };
+      // Only call API if online
+      if (navigator.onLine) {
+        const res = await createInspection({
+          plotId: selectedPlot,
+          inspectorId: inspectorId,
+          inspectionDate: inspectionDate
+        });
 
-      const res = await createInspection(reqData);
-      let newInspection;
-      if (res.success && res.data && res.data.id) {
-        newInspection = res.data;
-      } else {
-        // Offline fallback or empty response: create local inspection safely
-        const fallbackId = generateUUID();
-        newInspection = {
-          id: fallbackId,
-          ...reqData,
-          ...(res.data || {}) // merge any partial data if it exists
-        };
+        if (res.success && res.data && res.data.id) {
+          // Backend returned a valid inspection — use its id
+          localInspection.id = res.data.id;
+          localInspection.sync_status = 'synced';
+        }
       }
-
-      // Save strictly to local DB so HistoryPage picks it up
-      await db.inspections.put({
-        ...newInspection,
-        inspection_date: newInspection.inspectionDate || new Date().toISOString(),
-        sync_status: (res.success && res.data) ? 'synced' : 'pending'
-      });
-
-      setActiveInspection(newInspection);
     } catch (error) {
-      console.error('Error al crear inspección:', error);
-      // Failsafe offline fallback
-      const fallbackId = generateUUID();
-      setActiveInspection({
-        id: fallbackId,
-        plotId: selectedPlot,
-        inspectorId: user?.id || '00000000-0000-0000-0000-000000000000',
-        inspectionDate: new Date().toISOString(),
-        inspection_date: new Date().toISOString()
-      });
-    } finally {
-      setIsCreatingInspection(false);
+      console.warn('[ScanPage] No se pudo crear inspección en el servidor, se guardará localmente:', error.message);
     }
+
+    // Always save to IndexedDB (id is guaranteed to be a valid UUID)
+    try {
+      await db.inspections.put(localInspection);
+    } catch (dbErr) {
+      console.error('[ScanPage] Error guardando inspección en IndexedDB:', dbErr);
+    }
+
+    setActiveInspection(localInspection);
+    setIsCreatingInspection(false);
   };
 
   const handleCapture = async (imageElement, dataUrl, blob) => {
@@ -93,48 +91,31 @@ export const ScanPage = ({ modelReady }) => {
     setResult(null);
 
     try {
-      // 1. Run inference (TensorFlow.js)
+      // 1. Run inference (TensorFlow.js — works fully offline)
       const prediction = await predictPest(imageElement);
       
       // 2. Local quick history (optional but useful for stats)
       await saveInference(prediction, dataUrl);
 
-      // 3. Save blob locally and insert metadata to DB
-      const imageIdStr = generateUUID();
-      const fileUri = imageIdStr;
+      // 3. Save blob locally and insert metadata to IndexedDB
+      const imageId = generateUUID();
       if (blob) {
-        await saveImageBlob(fileUri, blob);
+        await saveImageBlob(imageId, blob);
         
         await db.images.put({
-          id: fileUri,
+          id: imageId,
           inspection_id: activeInspection.id,
-          file_uri: fileUri,
-          mime_type: blob.type,
+          file_uri: imageId,
+          mime_type: blob.type || 'image/jpeg',
           width: imageElement?.width || 0,
           height: imageElement?.height || 0,
           device_id: 'local-browser'
         });
       }
 
-      // 4. Send image metadata to API (if online this will succeed, offline will fail)
-      if (blob && navigator.onLine) {
-        try {
-          await createInspectionImage(activeInspection.id, {
-            inspectionId: activeInspection.id,
-            fileUri: fileUri,
-            mimeType: blob.type || 'image/jpeg',
-            width: imageElement?.width || 0,
-            height: imageElement?.height || 0,
-            deviceId: 'local-browser'
-          });
-        } catch (e) {
-          console.warn('Could not sync image metadata instantly, will sync later.', e);
-        }
-      }
-
-      // 5. Build Inference Result Record and save locally (IndexedDB)
+      // 4. Save inference result to IndexedDB
       const inferencePayload = {
-        imageId: fileUri,
+        imageId: imageId,
         modelName: 'broca_detect_v1',
         modelVersion: 'v1.0.0',
         predictedDiseaseId: prediction.pestId,
@@ -146,55 +127,54 @@ export const ScanPage = ({ modelReady }) => {
       };
       await saveInferenceResult(inferencePayload);
       
-      // 5.5 Guardar Observación Automáticamente
-      const observationPayload = {
+      // 5. Save observation to IndexedDB
+      await db.observations.put({
         id: generateUUID(),
         inspection_id: activeInspection.id,
         disease_id: prediction.pestId,
         severity_level: prediction.risk === 'critical' ? 5 : (prediction.risk === 'high' ? 4 : (prediction.risk === 'medium' ? 3 : 1)),
         incidence_percent: prediction.confidence * 100,
         source_type: 'AI'
-      };
-      await db.observations.put(observationPayload);
+      });
 
-      // 6. POST to backend (SQL Server) if online
-      let postRes = { success: false };
+      // 6. If online, try to sync image metadata + inference to backend
+      //    These are fire-and-forget — if they fail, syncBulk will handle it later
       if (navigator.onLine) {
+        // Image metadata
         try {
-          postRes = await createInferenceResult(inferencePayload);
+          await createInspectionImage(activeInspection.id, {
+            inspectionId: activeInspection.id,
+            fileUri: imageId,
+            mimeType: blob?.type || 'image/jpeg',
+            width: imageElement?.width || 0,
+            height: imageElement?.height || 0,
+            deviceId: 'local-browser'
+          });
         } catch (e) {
-          console.warn('Could not sync inference instantly, will sync later.', e);
+          console.warn('[ScanPage] No se pudo enviar metadata de imagen al servidor:', e.message);
+        }
+
+        // Inference result
+        try {
+          await createInferenceResult(inferencePayload);
+        } catch (e) {
+          console.warn('[ScanPage] No se pudo enviar inferencia al servidor:', e.message);
         }
       }
 
-      // 7. GET from backend
-      let finalResult = null;
-      if (postRes.success) {
-        const getRes = await getInferenceResultByImageId(fileUri);
-        if (getRes.success && getRes.data) {
-          finalResult = getRes.data;
-        }
-      }
-
-      // 8. If backend failed (offline), use local data to simulate response
-      if (!finalResult) {
-        finalResult = {
-          pestType: prediction.pestType,
-          scientific: prediction.scientific,
-          risk: prediction.risk,
-          color: prediction.color,
-          confidence: prediction.confidence,
-          inferenceTimeMs: prediction.inferenceTimeMs,
-          recommendation: prediction.risk === 'none' ? 'Planta Sana (Evaluado Offline)' : 'Guardado localmente. Sincroniza al tener conexión.',
-          allPredictions: prediction.allPredictions
-        };
-      } else {
-        // Carry over inference time and all predictions from local execution to display
-        finalResult.inferenceTimeMs = prediction.inferenceTimeMs;
-        finalResult.allPredictions = prediction.allPredictions;
-      }
-
-      setResult(finalResult);
+      // 7. Build result for UI display (always from local prediction)
+      setResult({
+        pestType: prediction.pestType,
+        scientific: prediction.scientific,
+        risk: prediction.risk,
+        color: prediction.color,
+        confidence: prediction.confidence,
+        inferenceTimeMs: prediction.inferenceTimeMs,
+        allPredictions: prediction.allPredictions,
+        recommendation: navigator.onLine 
+          ? (prediction.risk === 'none' ? 'Planta sana detectada.' : 'Resultado enviado al servidor.')
+          : (prediction.risk === 'none' ? 'Planta Sana (Evaluado Offline)' : 'Guardado localmente. Sincroniza al tener conexión.')
+      });
 
     } catch (error) {
       console.error('Error en captura e inferencia:', error);
