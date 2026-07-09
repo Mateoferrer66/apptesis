@@ -3,7 +3,7 @@ import { CameraCapture } from '../components/CameraCapture';
 import { InferenceResult } from '../components/InferenceResult';
 import { predictPest } from '../services/ModelService';
 import { saveInference, saveImageBlob, saveInferenceResult, db } from '../services/db';
-import { getPlots, createInspection, createInspectionImage, createInferenceResult } from '../services/apiService';
+import { getPlots, createInspection, createInspectionImage, createInferenceResult, createObservation, syncBulkTelemetry } from '../services/apiService';
 import { useAuth } from '../contexts/AuthContext';
 import { Activity, ScanLine, Shield, MapPin, CheckCircle, PlusCircle } from 'lucide-react';
 import { generateUUID } from '../utils/uuid';
@@ -126,14 +126,32 @@ export const ScanPage = ({ modelReady }) => {
       await saveInferenceResult(inferencePayload);
       
       // 5. Save observation to IndexedDB
-      await db.observations.put({
+      const obsPayload = {
         id: generateUUID(),
-        inspection_id: activeInspection.id,
-        disease_id: prediction.pestId,
-        severity_level: prediction.risk === 'critical' ? 5 : (prediction.risk === 'high' ? 4 : (prediction.risk === 'medium' ? 3 : 1)),
-        incidence_percent: prediction.confidence * 100,
-        source_type: 'AI'
+        inspectionId: activeInspection.id,
+        diseaseId: prediction.pestId,
+        severityLevel: prediction.risk === 'critical' ? 5 : (prediction.risk === 'high' ? 4 : (prediction.risk === 'medium' ? 3 : 1)),
+        incidencePercent: prediction.confidence * 100,
+        sourceType: 'AI'
+      };
+      await db.observations.put({
+        id: obsPayload.id,
+        inspection_id: obsPayload.inspectionId,
+        disease_id: obsPayload.diseaseId,
+        severity_level: obsPayload.severityLevel,
+        incidence_percent: obsPayload.incidencePercent,
+        source_type: obsPayload.sourceType
       });
+
+      const telemetryPayload = {
+        id: generateUUID(),
+        timestamp: new Date().toISOString(),
+        pestType: prediction.pestType,
+        confidence: prediction.confidence,
+        inferenceTimeMs: prediction.inferenceTimeMs || 0,
+        inspectionCount: 1,
+        deviceHash: 'local-browser'
+      };
 
       // 6. If online AND the inspection was successfully synced to the backend,
       //    try to sync image metadata + inference. Otherwise skip (syncBulk will handle it).
@@ -155,6 +173,25 @@ export const ScanPage = ({ modelReady }) => {
           } catch (e) {
             console.warn('[ScanPage] No se pudo enviar inferencia al servidor:', e.message);
           }
+          
+          // Post Observation
+          try {
+            // Only send observation if disease is valid uuid
+            const validDisease = prediction.pestId;
+            if (validDisease && validDisease.length === 36 && validDisease.includes('-')) {
+              await createObservation(obsPayload);
+            }
+          } catch (e) {
+            console.warn('[ScanPage] No se pudo enviar observacion al servidor:', e.message);
+          }
+          
+          // Post Telemetry
+          try {
+            await syncBulkTelemetry([telemetryPayload]);
+          } catch (e) {
+            console.warn('[ScanPage] No se pudo enviar telemetria al servidor:', e.message);
+          }
+
         } catch (e) {
           console.warn('[ScanPage] No se pudo enviar metadata de imagen al servidor:', e.message);
         }

@@ -67,16 +67,23 @@ export const syncAllPendingData = async () => {
       }
 
       const validPlotId = getValidUUID(insp.plot_id || insp.plotId);
+      if (validPlotId === '00000000-0000-0000-0000-000000000000') {
+        console.warn(`[Sync] Skipping inspection ${insp.id} because it uses an offline/fallback plot ID that doesn't exist on the server. Marking as synced to prevent infinite retry.`);
+        toUpdateInspections.push({ old: insp.id, new: safeInspId });
+        continue; // Skip this inspection and its children from being sent to server
+      }
+
       const validInspectorId = getValidUUID(insp.inspector_id || insp.inspectorId);
 
       const inspectionDto = {
         id: safeInspId,
+        plotId: validPlotId,
         inspectionDate: insp.inspection_date || insp.inspectionDate || new Date().toISOString()
       };
       
-      // Only include them if they are valid real UUIDs, not the zero-guid fallback
-      if (validPlotId !== '00000000-0000-0000-0000-000000000000') inspectionDto.plotId = validPlotId;
-      if (validInspectorId !== '00000000-0000-0000-0000-000000000000') inspectionDto.inspectorId = validInspectorId;
+      if (validInspectorId !== '00000000-0000-0000-0000-000000000000') {
+        inspectionDto.inspectorId = validInspectorId;
+      }
 
       inspectionsDto.push(inspectionDto);
       toUpdateInspections.push({ old: insp.id, new: safeInspId });
@@ -99,21 +106,23 @@ export const syncAllPendingData = async () => {
         const inference = allInferences.find(inf => inf.image_id === img.file_uri || inf.image_id === img.id);
         if (inference) {
           const validPredictedDiseaseId = getValidDiseaseId(inference.predicted_disease_id);
-          const inferenceDto = {
-            id: isUUID(inference.id) ? inference.id : generateUUID(),
-            imageId: safeImgId,
-            modelName: inference.model_name || 'broca_detect_v1',
-            modelVersion: inference.model_version || 'v1.0.0',
-            confidence: inference.confidence || 0,
-            topKJson: inference.top_k_json || '[]',
-            inferenceTimeMs: inference.inferenceTimeMs || 0,
-            tfBackend: inference.tfBackend || 'wasm',
-            deviceMemoryGb: navigator.deviceMemory || 0
-          };
-          if (validPredictedDiseaseId !== '00000000-0000-0000-0000-000000000000') {
-            inferenceDto.predictedDiseaseId = validPredictedDiseaseId;
+          if (validPredictedDiseaseId === '00000000-0000-0000-0000-000000000000' || validPredictedDiseaseId.startsWith('1111') || validPredictedDiseaseId.startsWith('2222') || validPredictedDiseaseId.startsWith('3333') || validPredictedDiseaseId.startsWith('4444') || validPredictedDiseaseId.startsWith('5555')) {
+             console.warn('[Sync] Skipping inference result due to fake disease ID:', validPredictedDiseaseId);
+          } else {
+            const inferenceDto = {
+              id: isUUID(inference.id) ? inference.id : generateUUID(),
+              imageId: safeImgId,
+              modelName: inference.model_name || 'broca_detect_v1',
+              modelVersion: inference.model_version || 'v1.0.0',
+              predictedDiseaseId: validPredictedDiseaseId,
+              confidence: inference.confidence || 0,
+              topKJson: inference.top_k_json || '[]',
+              inferenceTimeMs: inference.inferenceTimeMs || 0,
+              tfBackend: inference.tfBackend || 'wasm',
+              deviceMemoryGb: navigator.deviceMemory || 0
+            };
+            inferenceResultsDto.push(inferenceDto);
           }
-          inferenceResultsDto.push(inferenceDto);
         }
       }
       
@@ -121,17 +130,19 @@ export const syncAllPendingData = async () => {
       const inspObs = allObservations.filter(obs => obs.inspection_id === insp.id);
       for (const obs of inspObs) {
         const validDiseaseId = getValidDiseaseId(obs.disease_id || obs.diseaseId);
-        const obsDto = {
-          id: isUUID(obs.id) ? obs.id : generateUUID(),
-          inspectionId: safeInspId,
-          severityLevel: obs.severity_level || obs.severityLevel || 1,
-          incidencePercent: obs.incidence_percent || obs.incidencePercent || 0,
-          sourceType: obs.source_type || obs.sourceType || 'Manual'
-        };
-        if (validDiseaseId !== '00000000-0000-0000-0000-000000000000') {
-          obsDto.diseaseId = validDiseaseId;
+        if (validDiseaseId === '00000000-0000-0000-0000-000000000000' || validDiseaseId.startsWith('1111') || validDiseaseId.startsWith('2222') || validDiseaseId.startsWith('3333') || validDiseaseId.startsWith('4444') || validDiseaseId.startsWith('5555')) {
+           console.warn('[Sync] Skipping observation due to fake disease ID:', validDiseaseId);
+        } else {
+          const obsDto = {
+            id: isUUID(obs.id) ? obs.id : generateUUID(),
+            inspectionId: safeInspId,
+            diseaseId: validDiseaseId,
+            severityLevel: obs.severity_level || obs.severityLevel || 1,
+            incidencePercent: obs.incidence_percent || obs.incidencePercent || 0,
+            sourceType: obs.source_type || obs.sourceType || 'Manual'
+          };
+          observationsDto.push(obsDto);
         }
-        observationsDto.push(obsDto);
       }
     }
     
