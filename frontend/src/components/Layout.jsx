@@ -75,7 +75,7 @@ export const Layout = ({ children, isOnline, isSyncing, onSync, onToggleOnline, 
           {/* Online/Offline */}
           <button 
             onClick={onToggleOnline}
-            className={`hidden sm:flex p-2 rounded-xl shadow-sm transition-all cursor-pointer ${isOnline ? 'bg-blue-50 text-blue-500 hover:bg-blue-100 ring-1 ring-blue-100' : 'bg-gray-100 text-gray-400 hover:bg-gray-200 ring-1 ring-gray-200'}`}
+            className={`flex p-2 rounded-xl shadow-sm transition-all cursor-pointer ${isOnline ? 'bg-blue-50 text-blue-500 hover:bg-blue-100 ring-1 ring-blue-100' : 'bg-gray-100 text-gray-400 hover:bg-gray-200 ring-1 ring-gray-200'}`}
             title={isOnline ? 'Forzar Modo Offline' : 'Activar Modo Online'}
           >
             {isOnline ? <Wifi className="w-4.5 h-4.5" /> : <WifiOff className="w-4.5 h-4.5" />}
@@ -94,7 +94,7 @@ export const Layout = ({ children, isOnline, isSyncing, onSync, onToggleOnline, 
             title="Instalar App"
           >
             <Download className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Instalar</span>
+            <span>Instalar</span>
           </button>
 
           {/* Logout */}
