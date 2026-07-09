@@ -121,33 +121,41 @@ export const Layout = ({ children, isOnline, isSyncing, onSync, onToggleOnline, 
       )}
 
       {/* Main Content */}
-      <main className="flex-1 pb-24 overflow-y-auto">
+      <main className="flex-1 pb-28 overflow-y-auto">
         {children}
       </main>
 
       {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 inset-x-0 z-50 glass-strong border-t border-white/30 safe-area-bottom">
-        <div className="max-w-lg mx-auto flex items-center justify-around px-2 py-2">
+      <nav className="fixed bottom-4 inset-x-0 z-40 flex justify-center safe-area-bottom pointer-events-none px-4">
+        <div className="glass-strong border border-white/60 shadow-2xl flex items-center justify-around px-2 py-1.5 pointer-events-auto w-full max-w-sm rounded-[28px]">
           {navItems.map(({ to, icon: Icon, label }) => (
             <NavLink
               key={to}
               to={to}
               className={({ isActive }) =>
-                `flex flex-col items-center gap-0.5 px-4 py-2 rounded-2xl transition-all ${
+                `flex flex-col items-center gap-1 px-4 py-2 rounded-[20px] transition-all relative overflow-hidden ${
                   isActive
-                    ? 'text-green-700 bg-green-50/80'
+                    ? 'text-green-700'
                     : 'text-gray-400 hover:text-gray-600'
                 }`
               }
             >
               {({ isActive }) => (
                 <>
-                  <Icon className="w-5 h-5" strokeWidth={isActive ? 2.5 : 2} />
-                  <span className={`text-[10px] font-bold ${isActive ? 'tracking-wide' : ''}`}>{label}</span>
+                  <Icon className="w-5 h-5 relative z-10" strokeWidth={isActive ? 2.5 : 2} />
+                  <span className={`text-[10px] font-bold relative z-10 ${isActive ? 'tracking-wide' : ''}`}>{label}</span>
+                  {isActive && (
+                    <motion.div
+                      layoutId="nav-bg"
+                      className="absolute inset-0 bg-gradient-to-tr from-green-100 to-emerald-50 opacity-80"
+                      initial={false}
+                      transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                    />
+                  )}
                   {isActive && (
                     <motion.div
                       layoutId="nav-dot"
-                      className="w-1 h-1 rounded-full bg-green-600 mt-0.5"
+                      className="absolute bottom-1 w-1 h-1 rounded-full bg-green-600"
                     />
                   )}
                 </>

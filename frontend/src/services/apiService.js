@@ -31,6 +31,17 @@ export const getHeaders = (isFormData = false) => {
  */
 const fetchApi = async (endpoint, options = {}) => {
   const url = `${API_URL}${endpoint}`;
+  
+  // Si estamos en modo offline y el endpoint no es Auth, evitamos la petición para no generar 401s innecesarios
+  const userStr = localStorage.getItem('agrovision_user');
+  let isOffline = false;
+  if (userStr) {
+    try { isOffline = JSON.parse(userStr).isOffline; } catch(e) {}
+  }
+  if (isOffline && !endpoint.includes('/Auth/')) {
+    return { success: false, error: 'Modo offline activo. Petición al servidor cancelada.', status: 0 };
+  }
+
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 15000);
   
@@ -39,21 +50,32 @@ const fetchApi = async (endpoint, options = {}) => {
     const response = await fetch(url, fetchOptions);
     clearTimeout(timeoutId);
 
-    // Intentar leer el JSON, si no, retornar objeto vacío o el status
+    if (response.status === 401) {
+      if (!isOffline) {
+        window.dispatchEvent(new CustomEvent('auth-error'));
+      }
+      return { success: false, error: 'Sesión expirada o token inválido. Por favor, inicia sesión nuevamente.', status: 401 };
+    }
+
     let data = null;
     const contentType = response.headers.get('content-type') || '';
+    const text = await response.text();
     
-    if (contentType.includes('application/json')) {
-      data = await response.json();
-    } else if (contentType.includes('text/html')) {
-      return { success: false, error: 'El servidor devolvió HTML (posible advertencia de ngrok). Revisa la conexión.', status: response.status };
+    if (text) {
+      if (contentType.includes('application/json')) {
+        try {
+          data = JSON.parse(text);
+        } catch (e) {
+          data = text; // Fallback to raw text if JSON parsing fails
+        }
+      } else if (contentType.includes('text/html')) {
+        return { success: false, error: 'El servidor devolvió HTML (posible advertencia de ngrok). Revisa la conexión.', status: response.status };
+      } else {
+        data = text;
+      }
     }
     
     if (!response.ok) {
-      if (response.status === 401) {
-        window.dispatchEvent(new CustomEvent('auth-error'));
-        return { success: false, error: 'Sesión expirada o token inválido. Por favor, inicia sesión nuevamente.', status: 401 };
-      }
       return { success: false, error: data || `Error ${response.status}: ${response.statusText}`, status: response.status };
     }
     return { success: true, data };
