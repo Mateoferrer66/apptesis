@@ -45,6 +45,16 @@ export const syncAllPendingData = async () => {
     
     const isUUID = (str) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(str);
     
+    const legacyDiseaseMap = {
+      'broca': '11111111-1111-1111-1111-111111111111',
+      'roya': '22222222-2222-2222-2222-222222222222',
+      'minador': '33333333-3333-3333-3333-333333333333',
+      'antracnosis': '44444444-4444-4444-4444-444444444444',
+      'healthy': '55555555-5555-5555-5555-555555555555'
+    };
+    const getValidDiseaseId = (id) => isUUID(id) ? id : (legacyDiseaseMap[id] || '00000000-0000-0000-0000-000000000000');
+    const getValidUUID = (id) => isUUID(id) ? id : '00000000-0000-0000-0000-000000000000';
+    
     // Mapear Inspecciones
     for (const insp of pendingInspections) {
       let safeInspId = insp.id;
@@ -58,8 +68,8 @@ export const syncAllPendingData = async () => {
 
       inspectionsDto.push({
         id: safeInspId,
-        plotId: insp.plot_id || insp.plotId,
-        inspectorId: insp.inspector_id || insp.inspectorId,
+        plotId: getValidUUID(insp.plot_id || insp.plotId),
+        inspectorId: getValidUUID(insp.inspector_id || insp.inspectorId),
         inspectionDate: insp.inspection_date || insp.inspectionDate || new Date().toISOString()
       });
       toUpdateInspections.push({ old: insp.id, new: safeInspId });
@@ -82,13 +92,13 @@ export const syncAllPendingData = async () => {
         const inference = allInferences.find(inf => inf.image_id === img.file_uri || inf.image_id === img.id);
         if (inference) {
           inferenceResultsDto.push({
-            id: inference.id || generateUUID(),
-            imageId: img.file_uri,
-            modelName: inference.model_name,
-            modelVersion: inference.model_version,
-            predictedDiseaseId: inference.predicted_disease_id,
-            confidence: inference.confidence,
-            topKJson: inference.top_k_json,
+            id: isUUID(inference.id) ? inference.id : generateUUID(),
+            imageId: safeImgId,
+            modelName: inference.model_name || 'broca_detect_v1',
+            modelVersion: inference.model_version || 'v1.0.0',
+            predictedDiseaseId: getValidDiseaseId(inference.predicted_disease_id),
+            confidence: inference.confidence || 0,
+            topKJson: inference.top_k_json || '[]',
             inferenceTimeMs: inference.inferenceTimeMs || 0,
             tfBackend: inference.tfBackend || 'wasm',
             deviceMemoryGb: navigator.deviceMemory || 0
@@ -102,7 +112,7 @@ export const syncAllPendingData = async () => {
         observationsDto.push({
           id: isUUID(obs.id) ? obs.id : generateUUID(),
           inspectionId: safeInspId,
-          diseaseId: obs.disease_id || obs.diseaseId,
+          diseaseId: getValidDiseaseId(obs.disease_id || obs.diseaseId),
           severityLevel: obs.severity_level || obs.severityLevel,
           incidencePercent: obs.incidence_percent || obs.incidencePercent,
           sourceType: obs.source_type || obs.sourceType || 'manual'

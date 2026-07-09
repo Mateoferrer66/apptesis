@@ -69,7 +69,7 @@ export const AuthProvider = ({ children }) => {
       // Modo offline: validar con credenciales demo
       if (email === 'inspector@agrovision.co' && password === 'agro2026') {
         const offlineUser = {
-          id: 'offline-demo-user',
+          id: '00000000-0000-0000-0000-000000000000',
           fullName: 'Inspector Demo',
           email: 'inspector@agrovision.co',
           role: 'inspector',

@@ -45,20 +45,21 @@ export const ScanPage = ({ modelReady }) => {
       // Default inspection date
       const reqData = {
         plotId: selectedPlot,
-        inspectorId: user?.id || 'offline-demo-user',
+        inspectorId: user?.id || '00000000-0000-0000-0000-000000000000',
         inspectionDate: new Date().toISOString()
       };
 
       const res = await createInspection(reqData);
       let newInspection;
-      if (res.success && res.data) {
+      if (res.success && res.data && res.data.id) {
         newInspection = res.data;
       } else {
-        // Offline fallback: create local inspection safely
+        // Offline fallback or empty response: create local inspection safely
         const fallbackId = generateUUID();
         newInspection = {
           id: fallbackId,
-          ...reqData
+          ...reqData,
+          ...(res.data || {}) // merge any partial data if it exists
         };
       }
 
@@ -77,7 +78,7 @@ export const ScanPage = ({ modelReady }) => {
       setActiveInspection({
         id: fallbackId,
         plotId: selectedPlot,
-        inspectorId: user?.id || 'offline-demo-user',
+        inspectorId: user?.id || '00000000-0000-0000-0000-000000000000',
         inspectionDate: new Date().toISOString(),
         inspection_date: new Date().toISOString()
       });
@@ -100,7 +101,7 @@ export const ScanPage = ({ modelReady }) => {
 
       // 3. Save blob locally and insert metadata to DB
       const imageIdStr = generateUUID();
-      const fileUri = `${activeInspection.id}-image-${imageIdStr.split('-')[0]}`;
+      const fileUri = imageIdStr;
       if (blob) {
         await saveImageBlob(fileUri, blob);
         
@@ -115,11 +116,20 @@ export const ScanPage = ({ modelReady }) => {
         });
       }
 
-      // 4. Send image to API via FormData (if online this will succeed, offline will fail)
-      if (blob) {
-        const formData = new FormData();
-        formData.append('File', blob, `image_${imageIdStr}.jpg`);
-        await createInspectionImage(activeInspection.id, formData);
+      // 4. Send image metadata to API (if online this will succeed, offline will fail)
+      if (blob && navigator.onLine) {
+        try {
+          await createInspectionImage(activeInspection.id, {
+            inspectionId: activeInspection.id,
+            fileUri: fileUri,
+            mimeType: blob.type || 'image/jpeg',
+            width: imageElement?.width || 0,
+            height: imageElement?.height || 0,
+            deviceId: 'local-browser'
+          });
+        } catch (e) {
+          console.warn('Could not sync image metadata instantly, will sync later.', e);
+        }
       }
 
       // 5. Build Inference Result Record and save locally (IndexedDB)
@@ -129,7 +139,10 @@ export const ScanPage = ({ modelReady }) => {
         modelVersion: 'v1.0.0',
         predictedDiseaseId: prediction.pestId,
         confidence: prediction.confidence,
-        topKJson: JSON.stringify(prediction.allPredictions)
+        topKJson: JSON.stringify(prediction.allPredictions),
+        inferenceTimeMs: prediction.inferenceTimeMs,
+        tfBackend: 'wasm',
+        deviceMemoryGb: navigator.deviceMemory || 0
       };
       await saveInferenceResult(inferencePayload);
       
@@ -147,10 +160,11 @@ export const ScanPage = ({ modelReady }) => {
       // 6. POST to backend (SQL Server) if online
       let postRes = { success: false };
       if (navigator.onLine) {
-        postRes = await createInferenceResult(inferencePayload);
-        // Observación remota (opcional si syncBulk lo hará luego)
-        // Pero para inmediatez intentamos:
-        // await createObservation({...}); 
+        try {
+          postRes = await createInferenceResult(inferencePayload);
+        } catch (e) {
+          console.warn('Could not sync inference instantly, will sync later.', e);
+        }
       }
 
       // 7. GET from backend
