@@ -163,7 +163,9 @@ export const syncAllPendingData = async () => {
       
       return { success: true, count: inspectionsDto.length + telemetriesDto.length };
     } else {
-      throw new Error(bulkRes.error || 'Error en syncBulk');
+      const errorMsg = typeof bulkRes.error === 'string' ? bulkRes.error : JSON.stringify(bulkRes.error || 'Error desconocido en syncBulk');
+      console.error('[Sync] syncBulk falló:', errorMsg);
+      return { success: false, error: errorMsg };
     }
     
   } catch (error) {

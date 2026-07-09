@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FileText, Plus, AlertCircle, RefreshCw, Calendar, MapPin, ChevronDown, Activity } from 'lucide-react';
-import { getInspections, createInspection, getObservationsByInspectionId } from '../services/apiService';
+import { createInspection, getObservationsByInspectionId } from '../services/apiService';
+import { getAllInspectionsWithDetails, db } from '../services/db';
+import { generateUUID } from '../utils/uuid';
 
 export const InspectionsPage = () => {
   const [inspections, setInspections] = useState([]);
@@ -15,12 +17,11 @@ export const InspectionsPage = () => {
   const fetchInspections = async () => {
     setIsLoading(true);
     setError('');
-    const res = await getInspections();
-    if (res.success && res.data) {
-      const dataArr = res.data.$values || res.data;
-      setInspections(Array.isArray(dataArr) ? dataArr : []);
-    } else {
-      setError(res.error || 'Error al obtener inspecciones');
+    try {
+      const localInspections = await db.inspections.orderBy('inspection_date').reverse().toArray();
+      setInspections(localInspections || []);
+    } catch (e) {
+      setError('Error al leer inspecciones locales: ' + e.message);
     }
     setIsLoading(false);
   };
@@ -149,7 +150,7 @@ export const InspectionsPage = () => {
                 <div>
                   <h4 className="font-bold text-gray-900 text-sm flex items-center gap-1.5">
                     <Calendar className="w-4 h-4 text-gray-400" />
-                    {new Date(insp.inspectionDate).toLocaleDateString()} - {new Date(insp.inspectionDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    {new Date(insp.inspection_date || insp.inspectionDate).toLocaleDateString()} - {new Date(insp.inspection_date || insp.inspectionDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </h4>
                   <p className="text-xs text-gray-500 mt-1.5 flex items-center gap-1.5">
                     <MapPin className="w-3.5 h-3.5" />

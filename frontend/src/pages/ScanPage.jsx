@@ -59,8 +59,6 @@ export const ScanPage = ({ modelReady }) => {
       // Only call API if online
       if (navigator.onLine) {
         const res = await createInspection({
-          plotId: selectedPlot,
-          inspectorId: inspectorId,
           inspectionDate: inspectionDate
         });
 
@@ -107,8 +105,8 @@ export const ScanPage = ({ modelReady }) => {
           inspection_id: activeInspection.id,
           file_uri: imageId,
           mime_type: blob.type || 'image/jpeg',
-          width: imageElement?.width || 0,
-          height: imageElement?.height || 0,
+          width: imageElement?.width || 1,
+          height: imageElement?.height || 1,
           device_id: 'local-browser'
         });
       }
@@ -137,28 +135,28 @@ export const ScanPage = ({ modelReady }) => {
         source_type: 'AI'
       });
 
-      // 6. If online, try to sync image metadata + inference to backend
-      //    These are fire-and-forget — if they fail, syncBulk will handle it later
-      if (navigator.onLine) {
+      // 6. If online AND the inspection was successfully synced to the backend,
+      //    try to sync image metadata + inference. Otherwise skip (syncBulk will handle it).
+      if (navigator.onLine && activeInspection.sync_status === 'synced') {
         // Image metadata
         try {
           await createInspectionImage(activeInspection.id, {
             inspectionId: activeInspection.id,
             fileUri: imageId,
             mimeType: blob?.type || 'image/jpeg',
-            width: imageElement?.width || 0,
-            height: imageElement?.height || 0,
+            width: imageElement?.width || 1,
+            height: imageElement?.height || 1,
             deviceId: 'local-browser'
           });
+
+          // Only post inference if image was registered successfully
+          try {
+            await createInferenceResult(inferencePayload);
+          } catch (e) {
+            console.warn('[ScanPage] No se pudo enviar inferencia al servidor:', e.message);
+          }
         } catch (e) {
           console.warn('[ScanPage] No se pudo enviar metadata de imagen al servidor:', e.message);
-        }
-
-        // Inference result
-        try {
-          await createInferenceResult(inferencePayload);
-        } catch (e) {
-          console.warn('[ScanPage] No se pudo enviar inferencia al servidor:', e.message);
         }
       }
 
