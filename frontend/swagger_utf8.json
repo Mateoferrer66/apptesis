@@ -1,0 +1,1188 @@
+﻿{
+    "openapi":  "3.0.4",
+    "info":  {
+                 "title":  "AgroVision API",
+                 "version":  "v1"
+             },
+    "paths":  {
+                  "/api/models/current":  {
+                                              "get":  {
+                                                          "tags":  [
+                                                                       "AiModel"
+                                                                   ],
+                                                          "responses":  {
+                                                                            "200":  {
+                                                                                        "description":  "OK"
+                                                                                    }
+                                                                        }
+                                                      }
+                                          },
+                  "/api/models/current/model-json":  {
+                                                         "get":  {
+                                                                     "tags":  [
+                                                                                  "AiModel"
+                                                                              ],
+                                                                     "responses":  {
+                                                                                       "200":  {
+                                                                                                   "description":  "OK"
+                                                                                               }
+                                                                                   }
+                                                                 }
+                                                     },
+                  "/api/Auth/login":  {
+                                          "post":  {
+                                                       "tags":  [
+                                                                    "Auth"
+                                                                ],
+                                                       "requestBody":  {
+                                                                           "content":  {
+                                                                                           "application/json":  {
+                                                                                                                    "schema":  {
+                                                                                                                                   "$ref":  "#/components/schemas/LoginRequestDto"
+                                                                                                                               }
+                                                                                                                },
+                                                                                           "text/json":  {
+                                                                                                             "schema":  {
+                                                                                                                            "$ref":  "#/components/schemas/LoginRequestDto"
+                                                                                                                        }
+                                                                                                         },
+                                                                                           "application/*+json":  {
+                                                                                                                      "schema":  {
+                                                                                                                                     "$ref":  "#/components/schemas/LoginRequestDto"
+                                                                                                                                 }
+                                                                                                                  }
+                                                                                       }
+                                                                       },
+                                                       "responses":  {
+                                                                         "200":  {
+                                                                                     "description":  "OK"
+                                                                                 }
+                                                                     }
+                                                   }
+                                      },
+                  "/api/Auth/register":  {
+                                             "post":  {
+                                                          "tags":  [
+                                                                       "Auth"
+                                                                   ],
+                                                          "requestBody":  {
+                                                                              "content":  {
+                                                                                              "application/json":  {
+                                                                                                                       "schema":  {
+                                                                                                                                      "$ref":  "#/components/schemas/RegisterRequestDto"
+                                                                                                                                  }
+                                                                                                                   },
+                                                                                              "text/json":  {
+                                                                                                                "schema":  {
+                                                                                                                               "$ref":  "#/components/schemas/RegisterRequestDto"
+                                                                                                                           }
+                                                                                                            },
+                                                                                              "application/*+json":  {
+                                                                                                                         "schema":  {
+                                                                                                                                        "$ref":  "#/components/schemas/RegisterRequestDto"
+                                                                                                                                    }
+                                                                                                                     }
+                                                                                          }
+                                                                          },
+                                                          "responses":  {
+                                                                            "200":  {
+                                                                                        "description":  "OK"
+                                                                                    }
+                                                                        }
+                                                      }
+                                         },
+                  "/api/Auth/me":  {
+                                       "get":  {
+                                                   "tags":  [
+                                                                "Auth"
+                                                            ],
+                                                   "responses":  {
+                                                                     "200":  {
+                                                                                 "description":  "OK"
+                                                                             }
+                                                                 }
+                                               }
+                                   },
+                  "/api/disease-catalog":  {
+                                               "get":  {
+                                                           "tags":  [
+                                                                        "DiseaseCatalog"
+                                                                    ],
+                                                           "responses":  {
+                                                                             "200":  {
+                                                                                         "description":  "OK"
+                                                                                     }
+                                                                         }
+                                                       },
+                                               "post":  {
+                                                            "tags":  [
+                                                                         "DiseaseCatalog"
+                                                                     ],
+                                                            "requestBody":  {
+                                                                                "content":  {
+                                                                                                "application/json":  {
+                                                                                                                         "schema":  {
+                                                                                                                                        "$ref":  "#/components/schemas/DiseaseCatalogRequestDto"
+                                                                                                                                    }
+                                                                                                                     },
+                                                                                                "text/json":  {
+                                                                                                                  "schema":  {
+                                                                                                                                 "$ref":  "#/components/schemas/DiseaseCatalogRequestDto"
+                                                                                                                             }
+                                                                                                              },
+                                                                                                "application/*+json":  {
+                                                                                                                           "schema":  {
+                                                                                                                                          "$ref":  "#/components/schemas/DiseaseCatalogRequestDto"
+                                                                                                                                      }
+                                                                                                                       }
+                                                                                            }
+                                                                            },
+                                                            "responses":  {
+                                                                              "200":  {
+                                                                                          "description":  "OK"
+                                                                                      }
+                                                                          }
+                                                        }
+                                           },
+                  "/api/disease-catalog/{id}":  {
+                                                    "get":  {
+                                                                "tags":  [
+                                                                             "DiseaseCatalog"
+                                                                         ],
+                                                                "parameters":  [
+                                                                                   {
+                                                                                       "name":  "id",
+                                                                                       "in":  "path",
+                                                                                       "required":  true,
+                                                                                       "schema":  {
+                                                                                                      "type":  "string",
+                                                                                                      "format":  "uuid"
+                                                                                                  }
+                                                                                   }
+                                                                               ],
+                                                                "responses":  {
+                                                                                  "200":  {
+                                                                                              "description":  "OK"
+                                                                                          }
+                                                                              }
+                                                            },
+                                                    "put":  {
+                                                                "tags":  [
+                                                                             "DiseaseCatalog"
+                                                                         ],
+                                                                "parameters":  [
+                                                                                   {
+                                                                                       "name":  "id",
+                                                                                       "in":  "path",
+                                                                                       "required":  true,
+                                                                                       "schema":  {
+                                                                                                      "type":  "string",
+                                                                                                      "format":  "uuid"
+                                                                                                  }
+                                                                                   }
+                                                                               ],
+                                                                "requestBody":  {
+                                                                                    "content":  {
+                                                                                                    "application/json":  {
+                                                                                                                             "schema":  {
+                                                                                                                                            "$ref":  "#/components/schemas/DiseaseCatalogRequestDto"
+                                                                                                                                        }
+                                                                                                                         },
+                                                                                                    "text/json":  {
+                                                                                                                      "schema":  {
+                                                                                                                                     "$ref":  "#/components/schemas/DiseaseCatalogRequestDto"
+                                                                                                                                 }
+                                                                                                                  },
+                                                                                                    "application/*+json":  {
+                                                                                                                               "schema":  {
+                                                                                                                                              "$ref":  "#/components/schemas/DiseaseCatalogRequestDto"
+                                                                                                                                          }
+                                                                                                                           }
+                                                                                                }
+                                                                                },
+                                                                "responses":  {
+                                                                                  "200":  {
+                                                                                              "description":  "OK"
+                                                                                          }
+                                                                              }
+                                                            },
+                                                    "delete":  {
+                                                                   "tags":  [
+                                                                                "DiseaseCatalog"
+                                                                            ],
+                                                                   "parameters":  [
+                                                                                      {
+                                                                                          "name":  "id",
+                                                                                          "in":  "path",
+                                                                                          "required":  true,
+                                                                                          "schema":  {
+                                                                                                         "type":  "string",
+                                                                                                         "format":  "uuid"
+                                                                                                     }
+                                                                                      }
+                                                                                  ],
+                                                                   "responses":  {
+                                                                                     "200":  {
+                                                                                                 "description":  "OK"
+                                                                                             }
+                                                                                 }
+                                                               }
+                                                },
+                  "/api/inference-results":  {
+                                                 "post":  {
+                                                              "tags":  [
+                                                                           "InferenceResults"
+                                                                       ],
+                                                              "requestBody":  {
+                                                                                  "content":  {
+                                                                                                  "application/json":  {
+                                                                                                                           "schema":  {
+                                                                                                                                          "$ref":  "#/components/schemas/CreateInferenceResultRequestDto"
+                                                                                                                                      }
+                                                                                                                       },
+                                                                                                  "text/json":  {
+                                                                                                                    "schema":  {
+                                                                                                                                   "$ref":  "#/components/schemas/CreateInferenceResultRequestDto"
+                                                                                                                               }
+                                                                                                                },
+                                                                                                  "application/*+json":  {
+                                                                                                                             "schema":  {
+                                                                                                                                            "$ref":  "#/components/schemas/CreateInferenceResultRequestDto"
+                                                                                                                                        }
+                                                                                                                         }
+                                                                                              }
+                                                                              },
+                                                              "responses":  {
+                                                                                "200":  {
+                                                                                            "description":  "OK"
+                                                                                        }
+                                                                            }
+                                                          }
+                                             },
+                  "/api/inference-results/image/{imageId}":  {
+                                                                 "get":  {
+                                                                             "tags":  [
+                                                                                          "InferenceResults"
+                                                                                      ],
+                                                                             "parameters":  [
+                                                                                                {
+                                                                                                    "name":  "imageId",
+                                                                                                    "in":  "path",
+                                                                                                    "required":  true,
+                                                                                                    "schema":  {
+                                                                                                                   "type":  "string",
+                                                                                                                   "format":  "uuid"
+                                                                                                               }
+                                                                                                }
+                                                                                            ],
+                                                                             "responses":  {
+                                                                                               "200":  {
+                                                                                                           "description":  "OK"
+                                                                                                       }
+                                                                                           }
+                                                                         }
+                                                             },
+                  "/api/inspections":  {
+                                           "post":  {
+                                                        "tags":  [
+                                                                     "Inspections"
+                                                                 ],
+                                                        "requestBody":  {
+                                                                            "content":  {
+                                                                                            "application/json":  {
+                                                                                                                     "schema":  {
+                                                                                                                                    "$ref":  "#/components/schemas/CreateInspectionRequestDto"
+                                                                                                                                }
+                                                                                                                 },
+                                                                                            "text/json":  {
+                                                                                                              "schema":  {
+                                                                                                                             "$ref":  "#/components/schemas/CreateInspectionRequestDto"
+                                                                                                                         }
+                                                                                                          },
+                                                                                            "application/*+json":  {
+                                                                                                                       "schema":  {
+                                                                                                                                      "$ref":  "#/components/schemas/CreateInspectionRequestDto"
+                                                                                                                                  }
+                                                                                                                   }
+                                                                                        }
+                                                                        },
+                                                        "responses":  {
+                                                                          "200":  {
+                                                                                      "description":  "OK"
+                                                                                  }
+                                                                      }
+                                                    }
+                                       },
+                  "/api/inspections/{id}":  {
+                                                "get":  {
+                                                            "tags":  [
+                                                                         "Inspections"
+                                                                     ],
+                                                            "parameters":  [
+                                                                               {
+                                                                                   "name":  "id",
+                                                                                   "in":  "path",
+                                                                                   "required":  true,
+                                                                                   "schema":  {
+                                                                                                  "type":  "string",
+                                                                                                  "format":  "uuid"
+                                                                                              }
+                                                                               }
+                                                                           ],
+                                                            "responses":  {
+                                                                              "200":  {
+                                                                                          "description":  "OK"
+                                                                                      }
+                                                                          }
+                                                        }
+                                            },
+                  "/api/inspections/{id}/plot":  {
+                                                     "put":  {
+                                                                 "tags":  [
+                                                                              "Inspections"
+                                                                          ],
+                                                                 "parameters":  [
+                                                                                    {
+                                                                                        "name":  "id",
+                                                                                        "in":  "path",
+                                                                                        "required":  true,
+                                                                                        "schema":  {
+                                                                                                       "type":  "string",
+                                                                                                       "format":  "uuid"
+                                                                                                   }
+                                                                                    }
+                                                                                ],
+                                                                 "requestBody":  {
+                                                                                     "content":  {
+                                                                                                     "application/json":  {
+                                                                                                                              "schema":  {
+                                                                                                                                             "$ref":  "#/components/schemas/AssignPlotRequestDto"
+                                                                                                                                         }
+                                                                                                                          },
+                                                                                                     "text/json":  {
+                                                                                                                       "schema":  {
+                                                                                                                                      "$ref":  "#/components/schemas/AssignPlotRequestDto"
+                                                                                                                                  }
+                                                                                                                   },
+                                                                                                     "application/*+json":  {
+                                                                                                                                "schema":  {
+                                                                                                                                               "$ref":  "#/components/schemas/AssignPlotRequestDto"
+                                                                                                                                           }
+                                                                                                                            }
+                                                                                                 }
+                                                                                 },
+                                                                 "responses":  {
+                                                                                   "200":  {
+                                                                                               "description":  "OK"
+                                                                                           }
+                                                                               }
+                                                             }
+                                                 },
+                  "/api/inspections/{inspectionId}/images":  {
+                                                                 "post":  {
+                                                                              "tags":  [
+                                                                                           "Inspections"
+                                                                                       ],
+                                                                              "parameters":  [
+                                                                                                 {
+                                                                                                     "name":  "inspectionId",
+                                                                                                     "in":  "path",
+                                                                                                     "required":  true,
+                                                                                                     "schema":  {
+                                                                                                                    "type":  "string"
+                                                                                                                }
+                                                                                                 }
+                                                                                             ],
+                                                                              "requestBody":  {
+                                                                                                  "content":  {
+                                                                                                                  "application/json":  {
+                                                                                                                                           "schema":  {
+                                                                                                                                                          "$ref":  "#/components/schemas/CreateInspectionImageRequestDto"
+                                                                                                                                                      }
+                                                                                                                                       },
+                                                                                                                  "text/json":  {
+                                                                                                                                    "schema":  {
+                                                                                                                                                   "$ref":  "#/components/schemas/CreateInspectionImageRequestDto"
+                                                                                                                                               }
+                                                                                                                                },
+                                                                                                                  "application/*+json":  {
+                                                                                                                                             "schema":  {
+                                                                                                                                                            "$ref":  "#/components/schemas/CreateInspectionImageRequestDto"
+                                                                                                                                                        }
+                                                                                                                                         }
+                                                                                                              }
+                                                                                              },
+                                                                              "responses":  {
+                                                                                                "200":  {
+                                                                                                            "description":  "OK"
+                                                                                                        }
+                                                                                            }
+                                                                          },
+                                                                 "get":  {
+                                                                             "tags":  [
+                                                                                          "Inspections"
+                                                                                      ],
+                                                                             "parameters":  [
+                                                                                                {
+                                                                                                    "name":  "inspectionId",
+                                                                                                    "in":  "path",
+                                                                                                    "required":  true,
+                                                                                                    "schema":  {
+                                                                                                                   "type":  "string",
+                                                                                                                   "format":  "uuid"
+                                                                                                               }
+                                                                                                }
+                                                                                            ],
+                                                                             "responses":  {
+                                                                                               "200":  {
+                                                                                                           "description":  "OK"
+                                                                                                       }
+                                                                                           }
+                                                                         }
+                                                             },
+                  "/api/observations":  {
+                                            "post":  {
+                                                         "tags":  [
+                                                                      "Observations"
+                                                                  ],
+                                                         "requestBody":  {
+                                                                             "content":  {
+                                                                                             "application/json":  {
+                                                                                                                      "schema":  {
+                                                                                                                                     "$ref":  "#/components/schemas/CreateObservationRequestDto"
+                                                                                                                                 }
+                                                                                                                  },
+                                                                                             "text/json":  {
+                                                                                                               "schema":  {
+                                                                                                                              "$ref":  "#/components/schemas/CreateObservationRequestDto"
+                                                                                                                          }
+                                                                                                           },
+                                                                                             "application/*+json":  {
+                                                                                                                        "schema":  {
+                                                                                                                                       "$ref":  "#/components/schemas/CreateObservationRequestDto"
+                                                                                                                                   }
+                                                                                                                    }
+                                                                                         }
+                                                                         },
+                                                         "responses":  {
+                                                                           "200":  {
+                                                                                       "description":  "OK"
+                                                                                   }
+                                                                       }
+                                                     }
+                                        },
+                  "/api/observations/inspection/{inspectionId}":  {
+                                                                      "get":  {
+                                                                                  "tags":  [
+                                                                                               "Observations"
+                                                                                           ],
+                                                                                  "parameters":  [
+                                                                                                     {
+                                                                                                         "name":  "inspectionId",
+                                                                                                         "in":  "path",
+                                                                                                         "required":  true,
+                                                                                                         "schema":  {
+                                                                                                                        "type":  "string",
+                                                                                                                        "format":  "uuid"
+                                                                                                                    }
+                                                                                                     }
+                                                                                                 ],
+                                                                                  "responses":  {
+                                                                                                    "200":  {
+                                                                                                                "description":  "OK"
+                                                                                                            }
+                                                                                                }
+                                                                              }
+                                                                  },
+                  "/api/organizations":  {
+                                             "get":  {
+                                                         "tags":  [
+                                                                      "Organizations"
+                                                                  ],
+                                                         "responses":  {
+                                                                           "200":  {
+                                                                                       "description":  "OK"
+                                                                                   }
+                                                                       }
+                                                     }
+                                         },
+                  "/api/Plots":  {
+                                     "get":  {
+                                                 "tags":  [
+                                                              "Plots"
+                                                          ],
+                                                 "responses":  {
+                                                                   "200":  {
+                                                                               "description":  "OK"
+                                                                           }
+                                                               }
+                                             }
+                                 },
+                  "/api/Role/roles":  {
+                                          "post":  {
+                                                       "tags":  [
+                                                                    "Role"
+                                                                ],
+                                                       "responses":  {
+                                                                         "200":  {
+                                                                                     "description":  "OK"
+                                                                                 }
+                                                                     }
+                                                   }
+                                      },
+                  "/api/Role/validate-role":  {
+                                                  "post":  {
+                                                               "tags":  [
+                                                                            "Role"
+                                                                        ],
+                                                               "requestBody":  {
+                                                                                   "content":  {
+                                                                                                   "application/json":  {
+                                                                                                                            "schema":  {
+                                                                                                                                           "$ref":  "#/components/schemas/AssignRoleDto"
+                                                                                                                                       }
+                                                                                                                        },
+                                                                                                   "text/json":  {
+                                                                                                                     "schema":  {
+                                                                                                                                    "$ref":  "#/components/schemas/AssignRoleDto"
+                                                                                                                                }
+                                                                                                                 },
+                                                                                                   "application/*+json":  {
+                                                                                                                              "schema":  {
+                                                                                                                                             "$ref":  "#/components/schemas/AssignRoleDto"
+                                                                                                                                         }
+                                                                                                                          }
+                                                                                               }
+                                                                               },
+                                                               "responses":  {
+                                                                                 "200":  {
+                                                                                             "description":  "OK"
+                                                                                         }
+                                                                             }
+                                                           }
+                                              },
+                  "/api/sync/bulk":  {
+                                         "post":  {
+                                                      "tags":  [
+                                                                   "Sync"
+                                                               ],
+                                                      "requestBody":  {
+                                                                          "content":  {
+                                                                                          "application/json":  {
+                                                                                                                   "schema":  {
+                                                                                                                                  "$ref":  "#/components/schemas/SyncBulkRequestDto"
+                                                                                                                              }
+                                                                                                               },
+                                                                                          "text/json":  {
+                                                                                                            "schema":  {
+                                                                                                                           "$ref":  "#/components/schemas/SyncBulkRequestDto"
+                                                                                                                       }
+                                                                                                        },
+                                                                                          "application/*+json":  {
+                                                                                                                     "schema":  {
+                                                                                                                                    "$ref":  "#/components/schemas/SyncBulkRequestDto"
+                                                                                                                                }
+                                                                                                                 }
+                                                                                      }
+                                                                      },
+                                                      "responses":  {
+                                                                        "200":  {
+                                                                                    "description":  "OK"
+                                                                                }
+                                                                    }
+                                                  }
+                                     },
+                  "/api/sync/logs":  {
+                                         "get":  {
+                                                     "tags":  [
+                                                                  "Sync"
+                                                              ],
+                                                     "responses":  {
+                                                                       "200":  {
+                                                                                   "description":  "OK"
+                                                                               }
+                                                                   }
+                                                 }
+                                     },
+                  "/api/sync/logs/device/{deviceId}":  {
+                                                           "get":  {
+                                                                       "tags":  [
+                                                                                    "Sync"
+                                                                                ],
+                                                                       "parameters":  [
+                                                                                          {
+                                                                                              "name":  "deviceId",
+                                                                                              "in":  "path",
+                                                                                              "required":  true,
+                                                                                              "schema":  {
+                                                                                                             "type":  "string"
+                                                                                                         }
+                                                                                          }
+                                                                                      ],
+                                                                       "responses":  {
+                                                                                         "200":  {
+                                                                                                     "description":  "OK"
+                                                                                                 }
+                                                                                     }
+                                                                   }
+                                                       },
+                  "/api/sync/logs/device/{deviceId}/last":  {
+                                                                "get":  {
+                                                                            "tags":  [
+                                                                                         "Sync"
+                                                                                     ],
+                                                                            "parameters":  [
+                                                                                               {
+                                                                                                   "name":  "deviceId",
+                                                                                                   "in":  "path",
+                                                                                                   "required":  true,
+                                                                                                   "schema":  {
+                                                                                                                  "type":  "string"
+                                                                                                              }
+                                                                                               }
+                                                                                           ],
+                                                                            "responses":  {
+                                                                                              "200":  {
+                                                                                                          "description":  "OK"
+                                                                                                      }
+                                                                                          }
+                                                                        }
+                                                            },
+                  "/api/Telemetry":  {
+                                         "post":  {
+                                                      "tags":  [
+                                                                   "Telemetry"
+                                                               ],
+                                                      "requestBody":  {
+                                                                          "content":  {
+                                                                                          "application/json":  {
+                                                                                                                   "schema":  {
+                                                                                                                                  "$ref":  "#/components/schemas/CreateTelemetryRequestDto"
+                                                                                                                              }
+                                                                                                               },
+                                                                                          "text/json":  {
+                                                                                                            "schema":  {
+                                                                                                                           "$ref":  "#/components/schemas/CreateTelemetryRequestDto"
+                                                                                                                       }
+                                                                                                        },
+                                                                                          "application/*+json":  {
+                                                                                                                     "schema":  {
+                                                                                                                                    "$ref":  "#/components/schemas/CreateTelemetryRequestDto"
+                                                                                                                                }
+                                                                                                                 }
+                                                                                      }
+                                                                      },
+                                                      "responses":  {
+                                                                        "200":  {
+                                                                                    "description":  "OK"
+                                                                                }
+                                                                    }
+                                                  },
+                                         "get":  {
+                                                     "tags":  [
+                                                                  "Telemetry"
+                                                              ],
+                                                     "responses":  {
+                                                                       "200":  {
+                                                                                   "description":  "OK"
+                                                                               }
+                                                                   }
+                                                 }
+                                     },
+                  "/api/Telemetry/{id}":  {
+                                              "get":  {
+                                                          "tags":  [
+                                                                       "Telemetry"
+                                                                   ],
+                                                          "parameters":  [
+                                                                             {
+                                                                                 "name":  "id",
+                                                                                 "in":  "path",
+                                                                                 "required":  true,
+                                                                                 "schema":  {
+                                                                                                "type":  "string",
+                                                                                                "format":  "uuid"
+                                                                                            }
+                                                                             }
+                                                                         ],
+                                                          "responses":  {
+                                                                            "200":  {
+                                                                                        "description":  "OK"
+                                                                                    }
+                                                                        }
+                                                      }
+                                          }
+              },
+    "components":  {
+                       "schemas":  {
+                                       "AssignPlotRequestDto":  {
+                                                                    "type":  "object",
+                                                                    "properties":  {
+                                                                                       "plotId":  {
+                                                                                                      "type":  "string",
+                                                                                                      "format":  "uuid"
+                                                                                                  }
+                                                                                   },
+                                                                    "additionalProperties":  false
+                                                                },
+                                       "AssignRoleDto":  {
+                                                             "required":  [
+                                                                              "rolSolicitado",
+                                                                              "usuarioId"
+                                                                          ],
+                                                             "type":  "object",
+                                                             "properties":  {
+                                                                                "usuarioId":  {
+                                                                                                  "minLength":  1,
+                                                                                                  "type":  "string"
+                                                                                              },
+                                                                                "rolSolicitado":  {
+                                                                                                      "minLength":  1,
+                                                                                                      "type":  "string"
+                                                                                                  }
+                                                                            },
+                                                             "additionalProperties":  false
+                                                         },
+                                       "CreateInferenceResultRequestDto":  {
+                                                                               "type":  "object",
+                                                                               "properties":  {
+                                                                                                  "imageId":  {
+                                                                                                                  "type":  "string",
+                                                                                                                  "format":  "uuid"
+                                                                                                              },
+                                                                                                  "predictedDiseaseId":  {
+                                                                                                                             "type":  "string",
+                                                                                                                             "format":  "uuid"
+                                                                                                                         },
+                                                                                                  "modelName":  {
+                                                                                                                    "type":  "string",
+                                                                                                                    "nullable":  true
+                                                                                                                },
+                                                                                                  "modelVersion":  {
+                                                                                                                       "type":  "string",
+                                                                                                                       "nullable":  true
+                                                                                                                   },
+                                                                                                  "confidence":  {
+                                                                                                                     "type":  "number",
+                                                                                                                     "format":  "double"
+                                                                                                                 },
+                                                                                                  "topKJson":  {
+                                                                                                                   "type":  "string",
+                                                                                                                   "nullable":  true
+                                                                                                               },
+                                                                                                  "inferenceTimeMs":  {
+                                                                                                                          "type":  "integer",
+                                                                                                                          "format":  "int32",
+                                                                                                                          "nullable":  true
+                                                                                                                      },
+                                                                                                  "tfBackend":  {
+                                                                                                                    "type":  "string",
+                                                                                                                    "nullable":  true
+                                                                                                                },
+                                                                                                  "deviceMemoryGb":  {
+                                                                                                                         "type":  "number",
+                                                                                                                         "format":  "double",
+                                                                                                                         "nullable":  true
+                                                                                                                     }
+                                                                                              },
+                                                                               "additionalProperties":  false
+                                                                           },
+                                       "CreateInspectionImageRequestDto":  {
+                                                                               "required":  [
+                                                                                                "deviceId",
+                                                                                                "fileUri",
+                                                                                                "inspectionId",
+                                                                                                "mimeType"
+                                                                                            ],
+                                                                               "type":  "object",
+                                                                               "properties":  {
+                                                                                                  "inspectionId":  {
+                                                                                                                       "type":  "string",
+                                                                                                                       "format":  "uuid"
+                                                                                                                   },
+                                                                                                  "fileUri":  {
+                                                                                                                  "maxLength":  500,
+                                                                                                                  "minLength":  1,
+                                                                                                                  "type":  "string"
+                                                                                                              },
+                                                                                                  "mimeType":  {
+                                                                                                                   "maxLength":  50,
+                                                                                                                   "minLength":  1,
+                                                                                                                   "type":  "string"
+                                                                                                               },
+                                                                                                  "width":  {
+                                                                                                                "maximum":  10000,
+                                                                                                                "minimum":  1,
+                                                                                                                "type":  "integer",
+                                                                                                                "format":  "int32"
+                                                                                                            },
+                                                                                                  "height":  {
+                                                                                                                 "maximum":  10000,
+                                                                                                                 "minimum":  1,
+                                                                                                                 "type":  "integer",
+                                                                                                                 "format":  "int32"
+                                                                                                             },
+                                                                                                  "deviceId":  {
+                                                                                                                   "maxLength":  100,
+                                                                                                                   "minLength":  1,
+                                                                                                                   "pattern":  "^[A-Za-z0-9\\-_]+$",
+                                                                                                                   "type":  "string"
+                                                                                                               }
+                                                                                              },
+                                                                               "additionalProperties":  false
+                                                                           },
+                                       "CreateInspectionRequestDto":  {
+                                                                          "type":  "object",
+                                                                          "properties":  {
+                                                                                             "inspectionDate":  {
+                                                                                                                    "type":  "string",
+                                                                                                                    "format":  "date-time"
+                                                                                                                }
+                                                                                         },
+                                                                          "additionalProperties":  false
+                                                                      },
+                                       "CreateObservationRequestDto":  {
+                                                                           "type":  "object",
+                                                                           "properties":  {
+                                                                                              "inspectionId":  {
+                                                                                                                   "type":  "string",
+                                                                                                                   "format":  "uuid"
+                                                                                                               },
+                                                                                              "diseaseId":  {
+                                                                                                                "type":  "string",
+                                                                                                                "format":  "uuid"
+                                                                                                            },
+                                                                                              "severityLevel":  {
+                                                                                                                    "type":  "integer",
+                                                                                                                    "format":  "int32"
+                                                                                                                },
+                                                                                              "incidencePercent":  {
+                                                                                                                       "type":  "number",
+                                                                                                                       "format":  "double"
+                                                                                                                   },
+                                                                                              "sourceType":  {
+                                                                                                                 "type":  "string",
+                                                                                                                 "nullable":  true
+                                                                                                             }
+                                                                                          },
+                                                                           "additionalProperties":  false
+                                                                       },
+                                       "CreateTelemetryRequestDto":  {
+                                                                         "type":  "object",
+                                                                         "properties":  {
+                                                                                            "timestamp":  {
+                                                                                                              "type":  "string",
+                                                                                                              "format":  "date-time"
+                                                                                                          },
+                                                                                            "pestType":  {
+                                                                                                             "type":  "string",
+                                                                                                             "nullable":  true
+                                                                                                         },
+                                                                                            "confidence":  {
+                                                                                                               "type":  "number",
+                                                                                                               "format":  "double"
+                                                                                                           },
+                                                                                            "inferenceTimeMs":  {
+                                                                                                                    "type":  "integer",
+                                                                                                                    "format":  "int32",
+                                                                                                                    "nullable":  true
+                                                                                                                },
+                                                                                            "inspectionCount":  {
+                                                                                                                    "type":  "integer",
+                                                                                                                    "format":  "int32",
+                                                                                                                    "nullable":  true
+                                                                                                                },
+                                                                                            "deviceHash":  {
+                                                                                                               "type":  "string",
+                                                                                                               "nullable":  true
+                                                                                                           }
+                                                                                        },
+                                                                         "additionalProperties":  false
+                                                                     },
+                                       "DiseaseCatalogRequestDto":  {
+                                                                        "type":  "object",
+                                                                        "properties":  {
+                                                                                           "commonName":  {
+                                                                                                              "type":  "string",
+                                                                                                              "nullable":  true
+                                                                                                          },
+                                                                                           "recommendation":  {
+                                                                                                                  "type":  "string",
+                                                                                                                  "nullable":  true
+                                                                                                              }
+                                                                                       },
+                                                                        "additionalProperties":  false
+                                                                    },
+                                       "LoginRequestDto":  {
+                                                               "type":  "object",
+                                                               "properties":  {
+                                                                                  "email":  {
+                                                                                                "type":  "string",
+                                                                                                "nullable":  true
+                                                                                            },
+                                                                                  "password":  {
+                                                                                                   "type":  "string",
+                                                                                                   "nullable":  true
+                                                                                               }
+                                                                              },
+                                                               "additionalProperties":  false
+                                                           },
+                                       "RegisterRequestDto":  {
+                                                                  "type":  "object",
+                                                                  "properties":  {
+                                                                                     "fullName":  {
+                                                                                                      "type":  "string",
+                                                                                                      "nullable":  true
+                                                                                                  },
+                                                                                     "email":  {
+                                                                                                   "type":  "string",
+                                                                                                   "nullable":  true
+                                                                                               },
+                                                                                     "password":  {
+                                                                                                      "type":  "string",
+                                                                                                      "nullable":  true
+                                                                                                  },
+                                                                                     "role":  {
+                                                                                                  "type":  "string",
+                                                                                                  "nullable":  true
+                                                                                              },
+                                                                                     "organizationId":  {
+                                                                                                            "type":  "string",
+                                                                                                            "format":  "uuid",
+                                                                                                            "nullable":  true
+                                                                                                        }
+                                                                                 },
+                                                                  "additionalProperties":  false
+                                                              },
+                                       "SyncBulkRequestDto":  {
+                                                                  "type":  "object",
+                                                                  "properties":  {
+                                                                                     "deviceId":  {
+                                                                                                      "type":  "string",
+                                                                                                      "nullable":  true
+                                                                                                  },
+                                                                                     "inspections":  {
+                                                                                                         "type":  "array",
+                                                                                                         "items":  {
+                                                                                                                       "$ref":  "#/components/schemas/SyncInspectionDto"
+                                                                                                                   },
+                                                                                                         "nullable":  true
+                                                                                                     },
+                                                                                     "images":  {
+                                                                                                    "type":  "array",
+                                                                                                    "items":  {
+                                                                                                                  "$ref":  "#/components/schemas/SyncImageDto"
+                                                                                                              },
+                                                                                                    "nullable":  true
+                                                                                                },
+                                                                                     "observations":  {
+                                                                                                          "type":  "array",
+                                                                                                          "items":  {
+                                                                                                                        "$ref":  "#/components/schemas/SyncObservationDto"
+                                                                                                                    },
+                                                                                                          "nullable":  true
+                                                                                                      },
+                                                                                     "inferenceResults":  {
+                                                                                                              "type":  "array",
+                                                                                                              "items":  {
+                                                                                                                            "$ref":  "#/components/schemas/SyncInferenceResultDto"
+                                                                                                                        },
+                                                                                                              "nullable":  true
+                                                                                                          },
+                                                                                     "telemetries":  {
+                                                                                                         "type":  "array",
+                                                                                                         "items":  {
+                                                                                                                       "$ref":  "#/components/schemas/SyncTelemetryDto"
+                                                                                                                   },
+                                                                                                         "nullable":  true
+                                                                                                     }
+                                                                                 },
+                                                                  "additionalProperties":  false
+                                                              },
+                                       "SyncImageDto":  {
+                                                            "type":  "object",
+                                                            "properties":  {
+                                                                               "id":  {
+                                                                                          "type":  "string",
+                                                                                          "format":  "uuid"
+                                                                                      },
+                                                                               "inspectionId":  {
+                                                                                                    "type":  "string",
+                                                                                                    "format":  "uuid"
+                                                                                                },
+                                                                               "fileUri":  {
+                                                                                               "type":  "string",
+                                                                                               "nullable":  true
+                                                                                           },
+                                                                               "mimeType":  {
+                                                                                                "type":  "string",
+                                                                                                "nullable":  true
+                                                                                            },
+                                                                               "width":  {
+                                                                                             "type":  "integer",
+                                                                                             "format":  "int32"
+                                                                                         },
+                                                                               "height":  {
+                                                                                              "type":  "integer",
+                                                                                              "format":  "int32"
+                                                                                          },
+                                                                               "deviceId":  {
+                                                                                                "type":  "string",
+                                                                                                "nullable":  true
+                                                                                            }
+                                                                           },
+                                                            "additionalProperties":  false
+                                                        },
+                                       "SyncInferenceResultDto":  {
+                                                                      "type":  "object",
+                                                                      "properties":  {
+                                                                                         "id":  {
+                                                                                                    "type":  "string",
+                                                                                                    "format":  "uuid"
+                                                                                                },
+                                                                                         "imageId":  {
+                                                                                                         "type":  "string",
+                                                                                                         "format":  "uuid"
+                                                                                                     },
+                                                                                         "modelName":  {
+                                                                                                           "type":  "string",
+                                                                                                           "nullable":  true
+                                                                                                       },
+                                                                                         "modelVersion":  {
+                                                                                                              "type":  "string",
+                                                                                                              "nullable":  true
+                                                                                                          },
+                                                                                         "predictedDiseaseId":  {
+                                                                                                                    "type":  "string",
+                                                                                                                    "format":  "uuid"
+                                                                                                                },
+                                                                                         "confidence":  {
+                                                                                                            "type":  "number",
+                                                                                                            "format":  "double"
+                                                                                                        },
+                                                                                         "topKJson":  {
+                                                                                                          "type":  "string",
+                                                                                                          "nullable":  true
+                                                                                                      },
+                                                                                         "inferenceTimeMs":  {
+                                                                                                                 "type":  "integer",
+                                                                                                                 "format":  "int32",
+                                                                                                                 "nullable":  true
+                                                                                                             },
+                                                                                         "tfBackend":  {
+                                                                                                           "type":  "string",
+                                                                                                           "nullable":  true
+                                                                                                       },
+                                                                                         "deviceMemoryGb":  {
+                                                                                                                "type":  "number",
+                                                                                                                "format":  "double",
+                                                                                                                "nullable":  true
+                                                                                                            }
+                                                                                     },
+                                                                      "additionalProperties":  false
+                                                                  },
+                                       "SyncInspectionDto":  {
+                                                                 "type":  "object",
+                                                                 "properties":  {
+                                                                                    "id":  {
+                                                                                               "type":  "string",
+                                                                                               "format":  "uuid"
+                                                                                           },
+                                                                                    "plotId":  {
+                                                                                                   "type":  "string",
+                                                                                                   "format":  "uuid"
+                                                                                               },
+                                                                                    "inspectorId":  {
+                                                                                                        "type":  "string",
+                                                                                                        "format":  "uuid"
+                                                                                                    },
+                                                                                    "inspectionDate":  {
+                                                                                                           "type":  "string",
+                                                                                                           "format":  "date-time"
+                                                                                                       }
+                                                                                },
+                                                                 "additionalProperties":  false
+                                                             },
+                                       "SyncObservationDto":  {
+                                                                  "type":  "object",
+                                                                  "properties":  {
+                                                                                     "id":  {
+                                                                                                "type":  "string",
+                                                                                                "format":  "uuid"
+                                                                                            },
+                                                                                     "inspectionId":  {
+                                                                                                          "type":  "string",
+                                                                                                          "format":  "uuid"
+                                                                                                      },
+                                                                                     "diseaseId":  {
+                                                                                                       "type":  "string",
+                                                                                                       "format":  "uuid"
+                                                                                                   },
+                                                                                     "severityLevel":  {
+                                                                                                           "type":  "integer",
+                                                                                                           "format":  "int32"
+                                                                                                       },
+                                                                                     "incidencePercent":  {
+                                                                                                              "type":  "number",
+                                                                                                              "format":  "double"
+                                                                                                          },
+                                                                                     "sourceType":  {
+                                                                                                        "type":  "string",
+                                                                                                        "nullable":  true
+                                                                                                    }
+                                                                                 },
+                                                                  "additionalProperties":  false
+                                                              },
+                                       "SyncTelemetryDto":  {
+                                                                "type":  "object",
+                                                                "properties":  {
+                                                                                   "id":  {
+                                                                                              "type":  "string",
+                                                                                              "format":  "uuid"
+                                                                                          },
+                                                                                   "timestamp":  {
+                                                                                                     "type":  "string",
+                                                                                                     "format":  "date-time"
+                                                                                                 },
+                                                                                   "pestType":  {
+                                                                                                    "type":  "string",
+                                                                                                    "nullable":  true
+                                                                                                },
+                                                                                   "confidence":  {
+                                                                                                      "type":  "number",
+                                                                                                      "format":  "double"
+                                                                                                  },
+                                                                                   "inferenceTimeMs":  {
+                                                                                                           "type":  "integer",
+                                                                                                           "format":  "int32",
+                                                                                                           "nullable":  true
+                                                                                                       },
+                                                                                   "inspectionCount":  {
+                                                                                                           "type":  "integer",
+                                                                                                           "format":  "int32",
+                                                                                                           "nullable":  true
+                                                                                                       },
+                                                                                   "deviceHash":  {
+                                                                                                      "type":  "string",
+                                                                                                      "nullable":  true
+                                                                                                  }
+                                                                               },
+                                                                "additionalProperties":  false
+                                                            }
+                                   },
+                       "securitySchemes":  {
+                                               "Bearer":  {
+                                                              "type":  "http",
+                                                              "scheme":  "Bearer",
+                                                              "bearerFormat":  "JWT"
+                                                          }
+                                           }
+                   },
+    "security":  [
+                     {
+                         "Bearer":  [
+
+                                    ]
+                     }
+                 ]
+}

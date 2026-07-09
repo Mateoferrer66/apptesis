@@ -62,7 +62,7 @@ export const AgroBot = () => {
   return (
     <>
       {/* Botones flotantes (WhatsApp y Bot) */}
-      <div className="fixed bottom-[100px] right-4 z-40 flex flex-col gap-3 md:bottom-[80px]">
+      <div className="fixed bottom-[130px] right-4 z-50 flex flex-row gap-3 md:bottom-[100px]">
         
         {/* WhatsApp Call to Action */}
         <motion.a

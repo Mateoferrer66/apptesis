@@ -1,4 +1,4 @@
-const fs = require('fs');
+import fs from 'fs';
 const swagger = JSON.parse(fs.readFileSync('swagger_full.json', 'utf8'));
 
 const printSchema = (ref) => {
@@ -16,7 +16,13 @@ const endpoints = [
 
 endpoints.forEach(ep => {
   console.log(`\n--- ${ep.method.toUpperCase()} ${ep.path} ---`);
-  const op = swagger.paths[ep.path]?.[ep.method];
+  let op = swagger.paths[ep.path]?.[ep.method];
+  // might be lowercase or exact match
+  if (!op) {
+    const p = Object.keys(swagger.paths).find(k => k.toLowerCase() === ep.path.toLowerCase());
+    if (p) op = swagger.paths[p][ep.method];
+  }
+
   if (!op) {
     console.log('Not found');
     return;
