@@ -38,12 +38,12 @@ export const InspectionsPage = () => {
     setExpanded(id);
     if (!observations[id]) {
       setLoadingObs(true);
-      const res = await getObservationsByInspectionId(id);
-      if (res.success) {
-        let obsData = [];
-        if (Array.isArray(res.data)) obsData = res.data;
-        else if (res.data?.$values) obsData = res.data.$values;
-        setObservations(prev => ({ ...prev, [id]: obsData }));
+      try {
+        const localObs = await db.observations.where('inspection_id').equals(id).toArray();
+        setObservations(prev => ({ ...prev, [id]: localObs || [] }));
+      } catch (err) {
+        console.error('Error cargando observaciones locales:', err);
+        setObservations(prev => ({ ...prev, [id]: [] }));
       }
       setLoadingObs(false);
     }

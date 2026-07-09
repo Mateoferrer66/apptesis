@@ -66,12 +66,19 @@ export const syncAllPendingData = async () => {
         await db.inspections.put(updatedInsp);
       }
 
-      inspectionsDto.push({
+      const validPlotId = getValidUUID(insp.plot_id || insp.plotId);
+      const validInspectorId = getValidUUID(insp.inspector_id || insp.inspectorId);
+
+      const inspectionDto = {
         id: safeInspId,
-        plotId: getValidUUID(insp.plot_id || insp.plotId),
-        inspectorId: getValidUUID(insp.inspector_id || insp.inspectorId),
         inspectionDate: insp.inspection_date || insp.inspectionDate || new Date().toISOString()
-      });
+      };
+      
+      // Only include them if they are valid real UUIDs, not the zero-guid fallback
+      if (validPlotId !== '00000000-0000-0000-0000-000000000000') inspectionDto.plotId = validPlotId;
+      if (validInspectorId !== '00000000-0000-0000-0000-000000000000') inspectionDto.inspectorId = validInspectorId;
+
+      inspectionsDto.push(inspectionDto);
       toUpdateInspections.push({ old: insp.id, new: safeInspId });
       
       // Mapear Imágenes relacionadas
@@ -83,40 +90,48 @@ export const syncAllPendingData = async () => {
           inspectionId: safeInspId,
           fileUri: img.file_uri,
           mimeType: img.mime_type || 'image/jpeg',
-          width: img.width || 0,
-          height: img.height || 0,
+          width: img.width || 1,
+          height: img.height || 1,
           deviceId: deviceId
         });
         
         // Mapear Inferencia de la imagen
         const inference = allInferences.find(inf => inf.image_id === img.file_uri || inf.image_id === img.id);
         if (inference) {
-          inferenceResultsDto.push({
+          const validPredictedDiseaseId = getValidDiseaseId(inference.predicted_disease_id);
+          const inferenceDto = {
             id: isUUID(inference.id) ? inference.id : generateUUID(),
             imageId: safeImgId,
             modelName: inference.model_name || 'broca_detect_v1',
             modelVersion: inference.model_version || 'v1.0.0',
-            predictedDiseaseId: getValidDiseaseId(inference.predicted_disease_id),
             confidence: inference.confidence || 0,
             topKJson: inference.top_k_json || '[]',
             inferenceTimeMs: inference.inferenceTimeMs || 0,
             tfBackend: inference.tfBackend || 'wasm',
             deviceMemoryGb: navigator.deviceMemory || 0
-          });
+          };
+          if (validPredictedDiseaseId !== '00000000-0000-0000-0000-000000000000') {
+            inferenceDto.predictedDiseaseId = validPredictedDiseaseId;
+          }
+          inferenceResultsDto.push(inferenceDto);
         }
       }
       
       // Mapear Observaciones
       const inspObs = allObservations.filter(obs => obs.inspection_id === insp.id);
       for (const obs of inspObs) {
-        observationsDto.push({
+        const validDiseaseId = getValidDiseaseId(obs.disease_id || obs.diseaseId);
+        const obsDto = {
           id: isUUID(obs.id) ? obs.id : generateUUID(),
           inspectionId: safeInspId,
-          diseaseId: getValidDiseaseId(obs.disease_id || obs.diseaseId),
-          severityLevel: obs.severity_level || obs.severityLevel,
-          incidencePercent: obs.incidence_percent || obs.incidencePercent,
-          sourceType: obs.source_type || obs.sourceType || 'manual'
-        });
+          severityLevel: obs.severity_level || obs.severityLevel || 1,
+          incidencePercent: obs.incidence_percent || obs.incidencePercent || 0,
+          sourceType: obs.source_type || obs.sourceType || 'Manual'
+        };
+        if (validDiseaseId !== '00000000-0000-0000-0000-000000000000') {
+          obsDto.diseaseId = validDiseaseId;
+        }
+        observationsDto.push(obsDto);
       }
     }
     
