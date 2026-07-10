@@ -145,11 +145,6 @@ export const syncAllPendingData = async () => {
       } catch(e) {}
     }
 
-    // Ensure no EMPTY_GUID is ever sent
-    if (fallbackPlotId === EMPTY_GUID) fallbackPlotId = generateUUID();
-    if (fallbackInspectorId === EMPTY_GUID) fallbackInspectorId = generateUUID();
-    if (fallbackDiseaseId === EMPTY_GUID) fallbackDiseaseId = generateUUID();
-
     let hasIncompleteData = false;
 
     // Mapear Inspecciones
@@ -177,6 +172,12 @@ export const syncAllPendingData = async () => {
       
       if (validInspectorId === EMPTY_GUID) {
         validInspectorId = fallbackInspectorId;
+      }
+
+      // Si después de todos los fallbacks aún no hay ID válido, ignorar silenciosamente y dejar en pendiente
+      if (validPlotId === EMPTY_GUID || validInspectorId === EMPTY_GUID) {
+         hasIncompleteData = true;
+         continue; 
       }
 
       const inspectionDto = {
@@ -209,8 +210,14 @@ export const syncAllPendingData = async () => {
           let realPredictedDiseaseId = getRealDiseaseId(inference.predicted_disease_id || inference.predictedDiseaseId);
           if (realPredictedDiseaseId === EMPTY_GUID) {
              realPredictedDiseaseId = fallbackDiseaseId;
-             hasIncompleteData = true;
           }
+          
+          if (realPredictedDiseaseId === EMPTY_GUID) {
+              // Si no hay enfermedad válida, no enviamos el InferenceResult para evitar Foreign Key error
+              hasIncompleteData = true;
+              continue;
+          }
+
           const inferenceDto = {
             id: isUUID(inference.id) ? inference.id : generateUUID(),
             imageId: safeImgId,
@@ -233,8 +240,13 @@ export const syncAllPendingData = async () => {
         let realDiseaseId = getRealDiseaseId(obs.disease_id || obs.diseaseId);
         if (realDiseaseId === EMPTY_GUID) {
            realDiseaseId = fallbackDiseaseId;
-           hasIncompleteData = true;
         }
+
+        if (realDiseaseId === EMPTY_GUID) {
+            hasIncompleteData = true;
+            continue;
+        }
+
         const obsDto = {
           id: isUUID(obs.id) ? obs.id : generateUUID(),
           inspectionId: safeInspId,
@@ -268,10 +280,6 @@ export const syncAllPendingData = async () => {
         return { success: false, error: 'Existen datos incompletos (IDs faltantes). Inicie sesión y asegúrese de tener los catálogos descargados.' };
       }
       return { success: true, count: 0 };
-    }
-    
-    if (hasIncompleteData) {
-      console.warn('[Sync] Algunos registros fueron ignorados por datos incompletos (EMPTY_GUID detectado).');
     }
 
     // Enviar el SyncBulk
