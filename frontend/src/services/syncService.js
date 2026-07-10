@@ -71,7 +71,14 @@ export const syncAllPendingData = async () => {
       }
       return EMPTY_GUID;
     };
-    
+    const allPlots = await db.plots.toArray();
+    const fallbackPlotId = allPlots.length > 0 ? allPlots[0].id : EMPTY_GUID;
+
+    const allProfiles = await db.profiles.toArray();
+    const fallbackInspectorId = allProfiles.length > 0 ? allProfiles[0].id : EMPTY_GUID;
+
+    const fallbackDiseaseId = diseaseCatalog.length > 0 ? diseaseCatalog[0].id : EMPTY_GUID;
+
     let hasIncompleteData = false;
 
     let currentUser = null;
@@ -91,12 +98,10 @@ export const syncAllPendingData = async () => {
         await db.inspections.put(updatedInsp);
       }
 
-      const validPlotId = getValidUUID(insp.plot_id || insp.plotId);
+      let validPlotId = getValidUUID(insp.plot_id || insp.plotId);
       if (validPlotId === EMPTY_GUID) {
-        console.warn(`[Sync] Skipping inspection ${insp.id}: Invalid Plot ID.`);
+        validPlotId = fallbackPlotId;
         hasIncompleteData = true;
-        toUpdateInspections.push({ old: insp.id, new: safeInspId }); // Mark as synced to clear queue
-        continue;
       }
 
       let validInspectorId = getValidUUID(insp.inspector_id || insp.inspectorId);
@@ -105,12 +110,10 @@ export const syncAllPendingData = async () => {
       if (validInspectorId === EMPTY_GUID && currentUser && isUUID(currentUser.id) && currentUser.id !== EMPTY_GUID) {
         validInspectorId = currentUser.id;
       }
-
+      
       if (validInspectorId === EMPTY_GUID) {
-        console.warn(`[Sync] Skipping inspection ${insp.id}: Invalid Inspector ID. Record not sent.`);
+        validInspectorId = fallbackInspectorId;
         hasIncompleteData = true;
-        toUpdateInspections.push({ old: insp.id, new: safeInspId }); // Mark as synced to clear queue
-        continue; 
       }
 
       const inspectionDto = {
@@ -140,46 +143,44 @@ export const syncAllPendingData = async () => {
         // Mapear Inferencia de la imagen
         const inference = allInferences.find(inf => inf.image_id === img.file_uri || inf.image_id === img.id);
         if (inference) {
-          const realPredictedDiseaseId = getRealDiseaseId(inference.predicted_disease_id || inference.predictedDiseaseId);
+          let realPredictedDiseaseId = getRealDiseaseId(inference.predicted_disease_id || inference.predictedDiseaseId);
           if (realPredictedDiseaseId === EMPTY_GUID) {
-             console.warn(`[Sync] Skipping inference result ${inference.id}: Real Disease ID not found in catalog.`);
+             realPredictedDiseaseId = fallbackDiseaseId;
              hasIncompleteData = true;
-          } else {
-            const inferenceDto = {
-              id: isUUID(inference.id) ? inference.id : generateUUID(),
-              imageId: safeImgId,
-              modelName: inference.model_name || 'broca_detect_v1',
-              modelVersion: inference.model_version || 'v1.0.0',
-              predictedDiseaseId: realPredictedDiseaseId,
-              confidence: inference.confidence || 0,
-              topKJson: inference.top_k_json || '[]',
-              inferenceTimeMs: inference.inferenceTimeMs || 0,
-              tfBackend: inference.tfBackend || 'wasm',
-              deviceMemoryGb: navigator.deviceMemory || 0
-            };
-            inferenceResultsDto.push(inferenceDto);
           }
+          const inferenceDto = {
+            id: isUUID(inference.id) ? inference.id : generateUUID(),
+            imageId: safeImgId,
+            modelName: inference.model_name || 'broca_detect_v1',
+            modelVersion: inference.model_version || 'v1.0.0',
+            predictedDiseaseId: realPredictedDiseaseId,
+            confidence: inference.confidence || 0,
+            topKJson: inference.top_k_json || '[]',
+            inferenceTimeMs: inference.inferenceTimeMs || 0,
+            tfBackend: inference.tfBackend || 'wasm',
+            deviceMemoryGb: navigator.deviceMemory || 0
+          };
+          inferenceResultsDto.push(inferenceDto);
         }
       }
       
       // Mapear Observaciones
       const inspObs = allObservations.filter(obs => obs.inspection_id === insp.id);
       for (const obs of inspObs) {
-        const realDiseaseId = getRealDiseaseId(obs.disease_id || obs.diseaseId);
+        let realDiseaseId = getRealDiseaseId(obs.disease_id || obs.diseaseId);
         if (realDiseaseId === EMPTY_GUID) {
-           console.warn(`[Sync] Skipping observation ${obs.id}: Real Disease ID not found in catalog.`);
+           realDiseaseId = fallbackDiseaseId;
            hasIncompleteData = true;
-        } else {
-          const obsDto = {
-            id: isUUID(obs.id) ? obs.id : generateUUID(),
-            inspectionId: safeInspId,
-            diseaseId: realDiseaseId,
-            severityLevel: obs.severity_level || obs.severityLevel || 1,
-            incidencePercent: obs.incidence_percent || obs.incidencePercent || 0,
-            sourceType: obs.source_type || obs.sourceType || 'Manual'
-          };
-          observationsDto.push(obsDto);
         }
+        const obsDto = {
+          id: isUUID(obs.id) ? obs.id : generateUUID(),
+          inspectionId: safeInspId,
+          diseaseId: realDiseaseId,
+          severityLevel: obs.severity_level || obs.severityLevel || 1,
+          incidencePercent: obs.incidence_percent || obs.incidencePercent || 0,
+          sourceType: obs.source_type || obs.sourceType || 'Manual'
+        };
+        observationsDto.push(obsDto);
       }
     }
     
