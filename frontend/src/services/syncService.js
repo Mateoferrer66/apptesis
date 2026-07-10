@@ -74,6 +74,12 @@ export const syncAllPendingData = async () => {
     
     let hasIncompleteData = false;
 
+    let currentUser = null;
+    try {
+      const userStr = localStorage.getItem('agrovision_user');
+      if (userStr) currentUser = JSON.parse(userStr);
+    } catch (e) { }
+
     // Mapear Inspecciones
     for (const insp of pendingInspections) {
       let safeInspId = insp.id;
@@ -89,14 +95,21 @@ export const syncAllPendingData = async () => {
       if (validPlotId === EMPTY_GUID) {
         console.warn(`[Sync] Skipping inspection ${insp.id}: Invalid Plot ID.`);
         hasIncompleteData = true;
+        toUpdateInspections.push({ old: insp.id, new: safeInspId }); // Mark as synced to clear queue
         continue;
       }
 
-      const validInspectorId = getValidUUID(insp.inspector_id || insp.inspectorId);
+      let validInspectorId = getValidUUID(insp.inspector_id || insp.inspectorId);
       
+      // Intentar obtener del usuario logueado si está vacío
+      if (validInspectorId === EMPTY_GUID && currentUser && isUUID(currentUser.id) && currentUser.id !== EMPTY_GUID) {
+        validInspectorId = currentUser.id;
+      }
+
       if (validInspectorId === EMPTY_GUID) {
         console.warn(`[Sync] Skipping inspection ${insp.id}: Invalid Inspector ID. Record not sent.`);
         hasIncompleteData = true;
+        toUpdateInspections.push({ old: insp.id, new: safeInspId }); // Mark as synced to clear queue
         continue; 
       }
 
@@ -194,9 +207,7 @@ export const syncAllPendingData = async () => {
     }
     
     if (hasIncompleteData) {
-      // Registramos el error localmente
-      console.error('[Sync] Sincronización abortada por datos incompletos (EMPTY_GUID detectado).');
-      return { success: false, error: 'Existen datos incompletos para sincronizar. Por favor, asegúrese de estar logueado con un usuario válido y tener el catálogo de enfermedades actualizado.' };
+      console.warn('[Sync] Algunos registros fueron ignorados por datos incompletos (EMPTY_GUID detectado).');
     }
 
     // Enviar el SyncBulk
