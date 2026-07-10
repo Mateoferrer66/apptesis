@@ -1,5 +1,5 @@
 import { db, getPendingInspections, getImageBlob, logConflict } from './db';
-import { syncBulk, getCurrentModel } from './apiService';
+import { syncBulk, getCurrentModel, getPlots, getDiseaseCatalog } from './apiService';
 import { generateUUID } from '../utils/uuid';
 import { PEST_LABELS } from './ModelService';
 
@@ -71,13 +71,30 @@ export const syncAllPendingData = async () => {
       }
       return EMPTY_GUID;
     };
+
     const allPlots = await db.plots.toArray();
-    const fallbackPlotId = allPlots.length > 0 ? allPlots[0].id : EMPTY_GUID;
+    let fallbackPlotId = allPlots.length > 0 ? allPlots[0].id : EMPTY_GUID;
+    if (fallbackPlotId === EMPTY_GUID && navigator.onLine) {
+      try {
+        const pRes = await getPlots();
+        if (pRes.success && pRes.data && pRes.data.length > 0) {
+          fallbackPlotId = pRes.data[0].id;
+        }
+      } catch(e) {}
+    }
 
     const allProfiles = await db.profiles.toArray();
     const fallbackInspectorId = allProfiles.length > 0 ? allProfiles[0].id : EMPTY_GUID;
 
-    const fallbackDiseaseId = diseaseCatalog.length > 0 ? diseaseCatalog[0].id : EMPTY_GUID;
+    let fallbackDiseaseId = diseaseCatalog.length > 0 ? diseaseCatalog[0].id : EMPTY_GUID;
+    if (fallbackDiseaseId === EMPTY_GUID && navigator.onLine) {
+      try {
+        const dRes = await getDiseaseCatalog();
+        if (dRes.success && dRes.data && dRes.data.length > 0) {
+          fallbackDiseaseId = dRes.data[0].id;
+        }
+      } catch(e) {}
+    }
 
     let hasIncompleteData = false;
 
