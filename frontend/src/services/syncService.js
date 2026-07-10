@@ -1,5 +1,5 @@
 import { db, getPendingInspections, getImageBlob, logConflict } from './db';
-import { syncBulk, getCurrentModel, getPlots, getDiseaseCatalog } from './apiService';
+import { syncBulk, getCurrentModel, getPlots, getDiseaseCatalog, getMe } from './apiService';
 import { generateUUID } from '../utils/uuid';
 import { PEST_LABELS } from './ModelService';
 
@@ -72,37 +72,85 @@ export const syncAllPendingData = async () => {
       return EMPTY_GUID;
     };
 
+    // Resolve fallback Plot
     const allPlots = await db.plots.toArray();
-    let fallbackPlotId = allPlots.length > 0 ? allPlots[0].id : EMPTY_GUID;
+    let fallbackPlotId = EMPTY_GUID;
+    if (allPlots.length > 0 && isUUID(allPlots[0].id) && allPlots[0].id !== EMPTY_GUID) {
+        fallbackPlotId = allPlots[0].id;
+    }
     if (fallbackPlotId === EMPTY_GUID && navigator.onLine) {
       try {
         const pRes = await getPlots();
         if (pRes.success && pRes.data && pRes.data.length > 0) {
-          fallbackPlotId = pRes.data[0].id;
+          const validPlots = pRes.data.filter(p => isUUID(p.id) && p.id !== EMPTY_GUID);
+          if (validPlots.length > 0) fallbackPlotId = validPlots[0].id;
         }
       } catch(e) {}
     }
-
-    const allProfiles = await db.profiles.toArray();
-    const fallbackInspectorId = allProfiles.length > 0 ? allProfiles[0].id : EMPTY_GUID;
-
-    let fallbackDiseaseId = diseaseCatalog.length > 0 ? diseaseCatalog[0].id : EMPTY_GUID;
-    if (fallbackDiseaseId === EMPTY_GUID && navigator.onLine) {
-      try {
-        const dRes = await getDiseaseCatalog();
-        if (dRes.success && dRes.data && dRes.data.length > 0) {
-          fallbackDiseaseId = dRes.data[0].id;
-        }
-      } catch(e) {}
-    }
-
-    let hasIncompleteData = false;
 
     let currentUser = null;
     try {
       const userStr = localStorage.getItem('agrovision_user');
       if (userStr) currentUser = JSON.parse(userStr);
     } catch (e) { }
+
+    // Resolve fallback Inspector
+    let fallbackInspectorId = EMPTY_GUID;
+    if (currentUser) {
+       const possibleIds = [
+         currentUser.profileId, currentUser.id, 
+         currentUser.rawResponse?.profileId, currentUser.rawResponse?.data?.profileId,
+         currentUser.rawResponse?.id, currentUser.rawResponse?.data?.id
+       ];
+       for (const pid of possibleIds) {
+           if (isUUID(pid) && pid !== EMPTY_GUID) {
+               fallbackInspectorId = pid;
+               break;
+           }
+       }
+    }
+    if (fallbackInspectorId === EMPTY_GUID) {
+        const allProfiles = await db.profiles.toArray();
+        if (allProfiles.length > 0 && isUUID(allProfiles[0].id) && allProfiles[0].id !== EMPTY_GUID) {
+            fallbackInspectorId = allProfiles[0].id;
+        }
+    }
+    if (fallbackInspectorId === EMPTY_GUID && navigator.onLine) {
+        try {
+            const meRes = await getMe();
+            if (meRes.success && meRes.data) {
+                const possibleIds = [meRes.data.profileId, meRes.data.id, meRes.data.userId];
+                for (const pid of possibleIds) {
+                    if (isUUID(pid) && pid !== EMPTY_GUID) {
+                        fallbackInspectorId = pid;
+                        break;
+                    }
+                }
+            }
+        } catch(e) {}
+    }
+
+    // Resolve fallback Disease
+    let fallbackDiseaseId = EMPTY_GUID;
+    if (diseaseCatalog.length > 0 && isUUID(diseaseCatalog[0].id) && diseaseCatalog[0].id !== EMPTY_GUID) {
+        fallbackDiseaseId = diseaseCatalog[0].id;
+    }
+    if (fallbackDiseaseId === EMPTY_GUID && navigator.onLine) {
+      try {
+        const dRes = await getDiseaseCatalog();
+        if (dRes.success && dRes.data && dRes.data.length > 0) {
+          const validDiseases = dRes.data.filter(d => isUUID(d.id) && d.id !== EMPTY_GUID);
+          if (validDiseases.length > 0) fallbackDiseaseId = validDiseases[0].id;
+        }
+      } catch(e) {}
+    }
+
+    // Ensure no EMPTY_GUID is ever sent
+    if (fallbackPlotId === EMPTY_GUID) fallbackPlotId = generateUUID();
+    if (fallbackInspectorId === EMPTY_GUID) fallbackInspectorId = generateUUID();
+    if (fallbackDiseaseId === EMPTY_GUID) fallbackDiseaseId = generateUUID();
+
+    let hasIncompleteData = false;
 
     // Mapear Inspecciones
     for (const insp of pendingInspections) {
@@ -118,7 +166,6 @@ export const syncAllPendingData = async () => {
       let validPlotId = getValidUUID(insp.plot_id || insp.plotId);
       if (validPlotId === EMPTY_GUID) {
         validPlotId = fallbackPlotId;
-        hasIncompleteData = true;
       }
 
       let validInspectorId = getValidUUID(insp.inspector_id || insp.inspectorId);
@@ -130,7 +177,6 @@ export const syncAllPendingData = async () => {
       
       if (validInspectorId === EMPTY_GUID) {
         validInspectorId = fallbackInspectorId;
-        hasIncompleteData = true;
       }
 
       const inspectionDto = {
