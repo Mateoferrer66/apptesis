@@ -8,6 +8,19 @@ const AuthContext = createContext(null);
  * Gestiona el estado de sesión del usuario con persistencia en localStorage.
  * Soporta login contra el backend o modo offline con credenciales locales.
  */
+const decodeJwt = (token) => {
+  try {
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+    }).join(''));
+    return JSON.parse(jsonPayload);
+  } catch (e) {
+    return null;
+  }
+};
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -50,12 +63,17 @@ export const AuthProvider = ({ children }) => {
           }
         }
         
+        let decodedPayload = null;
+        if (foundToken) {
+           decodedPayload = decodeJwt(foundToken);
+        }
+        
         const userData = {
-          id: data?.id || data?.Id || data?.userId || 'admin-id',
-          fullName: data?.fullName || data?.FullName || data?.email || 'Admin',
-          email: data?.email || data?.Email,
-          role: data?.role || data?.Role || 'Admin',
-          organizationId: data?.organizationId || data?.OrganizationId,
+          id: decodedPayload?.['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'] || data?.id || data?.Id || data?.userId || 'admin-id',
+          fullName: decodedPayload?.['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name'] || data?.fullName || data?.FullName || data?.email || 'Admin',
+          email: decodedPayload?.['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress'] || data?.email || data?.Email,
+          role: decodedPayload?.['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] || data?.role || data?.Role || 'Admin',
+          organizationId: decodedPayload?.organizationId || data?.organizationId || data?.OrganizationId,
           token: foundToken,
           rawResponse: data // Store it so we can debug if needed
         };
