@@ -1,4 +1,4 @@
-import { db, getPendingInspections, getImageBlob, logConflict } from './db';
+import { db, getPendingInspections, getPendingImages, getPendingObservations, getPendingInferences, getImageBlob, logConflict } from './db';
 import { syncBulk, getCurrentModel, getPlots, getDiseaseCatalog, getMe } from './apiService';
 import { generateUUID } from '../utils/uuid';
 import { PEST_LABELS } from './ModelService';
@@ -28,9 +28,9 @@ export const syncAllPendingData = async () => {
   
   try {
     const pendingInspections = await getPendingInspections();
-    const allImages = await db.images.toArray();
-    const allInferences = await db.inference_results.toArray();
-    const allObservations = await db.observations.toArray();
+    const pendingImages = await getPendingImages();
+    const pendingInferences = await getPendingInferences();
+    const pendingObservations = await getPendingObservations();
     const legacyInferences = await db.inferences.toArray(); // Telemetría
     const diseaseCatalog = await db.disease_catalog.toArray();
     
@@ -44,6 +44,9 @@ export const syncAllPendingData = async () => {
     const telemetriesDto = [];
     
     const toUpdateInspections = [];
+    const toUpdateImages = [];
+    const toUpdateObservations = [];
+    const toUpdateInferences = [];
     const toUpdateTelemetries = [];
     
     const isUUID = (str) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(str);
@@ -189,74 +192,73 @@ export const syncAllPendingData = async () => {
 
       inspectionsDto.push(inspectionDto);
       toUpdateInspections.push({ old: insp.id, new: safeInspId });
-      
-      // Mapear Imágenes relacionadas
-      const inspImages = allImages.filter(img => img.inspection_id === insp.id);
-      for (const img of inspImages) {
-        const safeImgId = isUUID(img.id) ? img.id : generateUUID();
-        imagesDto.push({
-          id: safeImgId,
-          inspectionId: safeInspId,
-          fileUri: img.file_uri,
-          mimeType: img.mime_type || 'image/jpeg',
-          width: img.width || 1,
-          height: img.height || 1,
-          deviceId: deviceId
-        });
-        
-        // Mapear Inferencia de la imagen
-        const inference = allInferences.find(inf => inf.image_id === img.file_uri || inf.image_id === img.id);
-        if (inference) {
-          let realPredictedDiseaseId = getRealDiseaseId(inference.predicted_disease_id || inference.predictedDiseaseId);
-          if (realPredictedDiseaseId === EMPTY_GUID) {
-             realPredictedDiseaseId = fallbackDiseaseId;
-          }
-          
-          if (realPredictedDiseaseId === EMPTY_GUID) {
-              // Si no hay enfermedad válida, no enviamos el InferenceResult para evitar Foreign Key error
-              hasIncompleteData = true;
-              continue;
-          }
+    }
+    
+    // Mapear Imágenes Pendientes
+    for (const img of pendingImages) {
+      const safeImgId = isUUID(img.id) ? img.id : generateUUID();
+      imagesDto.push({
+        id: safeImgId,
+        inspectionId: img.inspection_id,
+        fileUri: img.file_uri,
+        mimeType: img.mime_type || 'image/jpeg',
+        width: img.width || 1,
+        height: img.height || 1,
+        deviceId: deviceId
+      });
+      toUpdateImages.push({ old: img.id, new: safeImgId });
+    }
 
-          const inferenceDto = {
-            id: isUUID(inference.id) ? inference.id : generateUUID(),
-            imageId: safeImgId,
-            modelName: inference.model_name || 'broca_detect_v1',
-            modelVersion: inference.model_version || 'v1.0.0',
-            predictedDiseaseId: realPredictedDiseaseId,
-            confidence: inference.confidence || 0,
-            topKJson: inference.top_k_json || '[]',
-            inferenceTimeMs: inference.inferenceTimeMs || 0,
-            tfBackend: inference.tfBackend || 'wasm',
-            deviceMemoryGb: navigator.deviceMemory || 0
-          };
-          inferenceResultsDto.push(inferenceDto);
-        }
+    // Mapear Resultados de Inferencia Pendientes
+    for (const inference of pendingInferences) {
+      let realPredictedDiseaseId = getRealDiseaseId(inference.predicted_disease_id || inference.predictedDiseaseId);
+      if (realPredictedDiseaseId === EMPTY_GUID) {
+          realPredictedDiseaseId = fallbackDiseaseId;
       }
       
-      // Mapear Observaciones
-      const inspObs = allObservations.filter(obs => obs.inspection_id === insp.id);
-      for (const obs of inspObs) {
-        let realDiseaseId = getRealDiseaseId(obs.disease_id || obs.diseaseId);
-        if (realDiseaseId === EMPTY_GUID) {
-           realDiseaseId = fallbackDiseaseId;
-        }
-
-        if (realDiseaseId === EMPTY_GUID) {
-            hasIncompleteData = true;
-            continue;
-        }
-
-        const obsDto = {
-          id: isUUID(obs.id) ? obs.id : generateUUID(),
-          inspectionId: safeInspId,
-          diseaseId: realDiseaseId,
-          severityLevel: obs.severity_level || obs.severityLevel || 1,
-          incidencePercent: obs.incidence_percent || obs.incidencePercent || 0,
-          sourceType: obs.source_type || obs.sourceType || 'Manual'
-        };
-        observationsDto.push(obsDto);
+      if (realPredictedDiseaseId === EMPTY_GUID) {
+          hasIncompleteData = true;
+          continue;
       }
+
+      const inferenceDto = {
+        id: isUUID(inference.id) ? inference.id : generateUUID(),
+        imageId: inference.image_id || inference.imageId,
+        modelName: inference.model_name || 'broca_detect_v1',
+        modelVersion: inference.model_version || 'v1.0.0',
+        predictedDiseaseId: realPredictedDiseaseId,
+        confidence: inference.confidence || 0,
+        topKJson: inference.top_k_json || '[]',
+        inferenceTimeMs: inference.inferenceTimeMs || 0,
+        tfBackend: inference.tfBackend || 'wasm',
+        deviceMemoryGb: navigator.deviceMemory || 0
+      };
+      inferenceResultsDto.push(inferenceDto);
+      toUpdateInferences.push({ old: inference.id, new: inferenceDto.id });
+    }
+
+    // Mapear Observaciones Pendientes
+    for (const obs of pendingObservations) {
+      let realDiseaseId = getRealDiseaseId(obs.disease_id || obs.diseaseId);
+      if (realDiseaseId === EMPTY_GUID) {
+          realDiseaseId = fallbackDiseaseId;
+      }
+
+      if (realDiseaseId === EMPTY_GUID) {
+          hasIncompleteData = true;
+          continue;
+      }
+
+      const obsDto = {
+        id: isUUID(obs.id) ? obs.id : generateUUID(),
+        inspectionId: obs.inspection_id || obs.inspectionId,
+        diseaseId: realDiseaseId,
+        severityLevel: obs.severity_level || obs.severityLevel || 1,
+        incidencePercent: obs.incidence_percent || obs.incidencePercent || 0,
+        sourceType: obs.source_type || obs.sourceType || 'Manual'
+      };
+      observationsDto.push(obsDto);
+      toUpdateObservations.push({ old: obs.id, new: obsDto.id });
     }
     
     // Mapear Telemetría Legacy
@@ -299,11 +301,20 @@ export const syncAllPendingData = async () => {
       for (const idObj of toUpdateInspections) {
         await db.inspections.update(idObj.new, { sync_status: 'synced' });
       }
+      for (const idObj of toUpdateImages) {
+        await db.images.update(idObj.old, { sync_status: 'synced', id: idObj.new }); // Update ID in case it changed
+      }
+      for (const idObj of toUpdateObservations) {
+        await db.observations.update(idObj.old, { sync_status: 'synced', id: idObj.new });
+      }
+      for (const idObj of toUpdateInferences) {
+        await db.inference_results.update(idObj.old, { sync_status: 'synced', id: idObj.new });
+      }
       for (const id of toUpdateTelemetries) {
         await db.inferences.update(id, { synced: true });
       }
       
-      return { success: true, count: inspectionsDto.length + telemetriesDto.length };
+      return { success: true, count: inspectionsDto.length + imagesDto.length + observationsDto.length + inferenceResultsDto.length + telemetriesDto.length };
     } else {
       const errorMsg = typeof bulkRes.error === 'string' ? bulkRes.error : JSON.stringify(bulkRes.error || 'Error desconocido en syncBulk');
       console.error('[Sync] syncBulk falló:', errorMsg);

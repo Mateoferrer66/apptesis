@@ -93,7 +93,7 @@ export const ScanPage = ({ modelReady }) => {
       const prediction = await predictPest(imageElement);
       
       // 2. Local quick history (optional but useful for stats)
-      await saveInference(prediction, dataUrl);
+      const telemetryLocalId = await saveInference(prediction, dataUrl);
 
       // 3. Save blob locally and insert metadata to IndexedDB
       const imageId = generateUUID();
@@ -107,12 +107,14 @@ export const ScanPage = ({ modelReady }) => {
           mime_type: blob.type || 'image/jpeg',
           width: imageElement?.width || 1,
           height: imageElement?.height || 1,
-          device_id: 'local-browser'
+          device_id: 'local-browser',
+          sync_status: 'pending'
         });
       }
 
       // 4. Save inference result to IndexedDB
       const inferencePayload = {
+        id: generateUUID(),
         imageId: imageId,
         modelName: 'broca_detect_v1',
         modelVersion: 'v1.0.0',
@@ -140,7 +142,8 @@ export const ScanPage = ({ modelReady }) => {
         disease_id: obsPayload.diseaseId,
         severity_level: obsPayload.severityLevel,
         incidence_percent: obsPayload.incidencePercent,
-        source_type: obsPayload.sourceType
+        source_type: obsPayload.sourceType,
+        sync_status: 'pending'
       });
 
       const telemetryPayload = {
@@ -156,9 +159,10 @@ export const ScanPage = ({ modelReady }) => {
       // 6. If online AND the inspection was successfully synced to the backend,
       //    try to sync image metadata + inference. Otherwise skip (syncBulk will handle it).
       if (navigator.onLine && activeInspection.sync_status === 'synced') {
+        let imageSynced = false;
         // Image metadata
         try {
-          await createInspectionImage(activeInspection.id, {
+          const imgRes = await createInspectionImage(activeInspection.id, {
             inspectionId: activeInspection.id,
             fileUri: imageId,
             mimeType: blob?.type || 'image/jpeg',
@@ -166,34 +170,48 @@ export const ScanPage = ({ modelReady }) => {
             height: imageElement?.height || 1,
             deviceId: 'local-browser'
           });
+          if (imgRes.success) {
+            await db.images.update(imageId, { sync_status: 'synced' });
+            imageSynced = true;
+          }
+        } catch (e) {
+          console.warn('[ScanPage] No se pudo enviar metadata de imagen al servidor:', e.message);
+        }
 
-          // Only post inference if image was registered successfully
+        // Only post inference if image was registered successfully
+        if (imageSynced) {
           try {
-            await createInferenceResult(inferencePayload);
+            const infRes = await createInferenceResult(inferencePayload);
+            if (infRes.success) {
+              await db.inference_results.update(inferencePayload.id, { sync_status: 'synced' });
+            }
           } catch (e) {
             console.warn('[ScanPage] No se pudo enviar inferencia al servidor:', e.message);
           }
-          
-          // Post Observation
-          try {
-            // Only send observation if disease is valid uuid
-            const validDisease = prediction.pestId;
-            if (validDisease && validDisease.length === 36 && validDisease.includes('-')) {
-              await createObservation(obsPayload);
+        }
+        
+        // Post Observation
+        try {
+          // Only send observation if disease is valid uuid
+          const validDisease = prediction.pestId;
+          if (validDisease && validDisease.length === 36 && validDisease.includes('-')) {
+            const obsRes = await createObservation(obsPayload);
+            if (obsRes.success) {
+              await db.observations.update(obsPayload.id, { sync_status: 'synced' });
             }
-          } catch (e) {
-            console.warn('[ScanPage] No se pudo enviar observacion al servidor:', e.message);
           }
-          
-          // Post Telemetry
-          try {
-            await syncBulkTelemetry([telemetryPayload]);
-          } catch (e) {
-            console.warn('[ScanPage] No se pudo enviar telemetria al servidor:', e.message);
-          }
-
         } catch (e) {
-          console.warn('[ScanPage] No se pudo enviar metadata de imagen al servidor:', e.message);
+          console.warn('[ScanPage] No se pudo enviar observacion al servidor:', e.message);
+        }
+        
+        // Post Telemetry
+        try {
+          const telRes = await syncBulkTelemetry([telemetryPayload]);
+          if (telRes.success) {
+            await db.inferences.update(telemetryLocalId, { synced: true });
+          }
+        } catch (e) {
+          console.warn('[ScanPage] No se pudo enviar telemetria al servidor:', e.message);
         }
       }
 

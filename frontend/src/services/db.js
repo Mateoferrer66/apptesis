@@ -22,7 +22,7 @@ import { generateUUID } from '../utils/uuid';
  */
 export const db = new Dexie('AgroVisionDB');
 
-db.version(3).stores({
+db.version(4).stores({
   // === Almacén para blobs de imágenes pesadas ===
   imagesStore: 'id',
   
@@ -50,13 +50,13 @@ db.version(3).stores({
   disease_catalog: 'id, common_name, scientific_name, category',
 
   // Imágenes capturadas
-  images: 'id, inspection_id, file_uri, mime_type, width, height, device_id',
+  images: 'id, inspection_id, file_uri, mime_type, width, height, device_id, sync_status',
 
   // Observaciones del inspector
-  observations: 'id, inspection_id, disease_id, severity_level, incidence_percent, source_type',
+  observations: 'id, inspection_id, disease_id, severity_level, incidence_percent, source_type, sync_status',
 
   // Resultados de inferencia
-  inference_results: 'id, image_id, model_name, model_version, predicted_disease_id, confidence, top_k_json',
+  inference_results: 'id, image_id, model_name, model_version, predicted_disease_id, confidence, top_k_json, sync_status',
 
   // Dispositivos registrados
   devices: 'id, user_id, device_name, platform',
@@ -164,6 +164,7 @@ export const saveInspection = async (inspection, images = [], observations = [])
         ...img,
         id: img.id || generateUUID(),
         inspection_id: inspectionId,
+        sync_status: img.sync_status || 'pending',
       });
     }
 
@@ -172,6 +173,7 @@ export const saveInspection = async (inspection, images = [], observations = [])
         ...obs,
         id: obs.id || generateUUID(),
         inspection_id: inspectionId,
+        sync_status: obs.sync_status || 'pending',
       });
     }
 
@@ -184,6 +186,27 @@ export const saveInspection = async (inspection, images = [], observations = [])
  */
 export const getPendingInspections = async () => {
   return db.inspections.where('sync_status').equals('pending').toArray();
+};
+
+/**
+ * Obtener imágenes pendientes de sincronización.
+ */
+export const getPendingImages = async () => {
+  return db.images.where('sync_status').equals('pending').toArray();
+};
+
+/**
+ * Obtener observaciones pendientes de sincronización.
+ */
+export const getPendingObservations = async () => {
+  return db.observations.where('sync_status').equals('pending').toArray();
+};
+
+/**
+ * Obtener resultados de inferencia pendientes de sincronización.
+ */
+export const getPendingInferences = async () => {
+  return db.inference_results.where('sync_status').equals('pending').toArray();
 };
 
 /**
@@ -223,6 +246,7 @@ export const saveInferenceResult = async (result) => {
     predicted_disease_id: result.predicted_disease_id || result.predictedDiseaseId,
     confidence: result.confidence,
     top_k_json: result.top_k_json || result.topKJson,
+    sync_status: result.sync_status || 'pending',
   });
 };
 
