@@ -43,7 +43,12 @@ export const ScanPage = ({ modelReady }) => {
     
     const inspectionId = generateUUID();
     const inspectionDate = new Date().toISOString();
-    const inspectorId = user?.id || '00000000-0000-0000-0000-000000000000';
+    let inspectorId = '00000000-0000-0000-0000-000000000000';
+    if (user) {
+       inspectorId = user.profileId || user.id || 
+                     user.rawResponse?.profileId || user.rawResponse?.data?.profileId || 
+                     user.rawResponse?.id || user.rawResponse?.data?.id || inspectorId;
+    }
 
     // Build the local object first — this always works
     const localInspection = {
@@ -65,6 +70,8 @@ export const ScanPage = ({ modelReady }) => {
       // Only call API if online and not explicitly set to offline
       if (navigator.onLine && !isOfflineMode) {
         const res = await createInspection({
+          plotId: selectedPlot,
+          inspectorId: inspectorId,
           inspectionDate: inspectionDate
         });
 
