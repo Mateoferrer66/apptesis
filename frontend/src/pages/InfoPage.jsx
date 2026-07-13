@@ -297,7 +297,7 @@ export const InfoPage = () => {
       >
         <h3 className="text-sm font-extrabold text-gray-700 mb-4 flex items-center gap-2">
           <Cpu className="w-4 h-4 text-indigo-500" />
-          Motor de Inteligencia Artificial
+          Motor de Vision Computacional
         </h3>
         <div className="space-y-3">
           <InfoRow label="Backend de cómputo" value={modelInfo?.backend || '—'} />
