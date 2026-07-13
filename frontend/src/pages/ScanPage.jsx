@@ -159,6 +159,9 @@ export const ScanPage = ({ modelReady }) => {
         sync_status: 'pending'
       });
 
+      // 5.5 Save legacy inference/telemetry to IndexedDB
+      const telemetryLocalId = await saveInference(prediction, dataUrl);
+
       const userStr = localStorage.getItem('agrovision_user');
       let isOfflineMode = false;
       if (userStr) {
@@ -245,7 +248,6 @@ export const ScanPage = ({ modelReady }) => {
               inspectionCount: 1,
               deviceHash: deviceId
             };
-            // El backend espera un solo objeto CreateTelemetryRequestDto
             const telRes = await syncBulkTelemetry(telemetryPayload);
             if (telRes.success) {
               await db.inferences.update(telemetryLocalId, { synced: true });
