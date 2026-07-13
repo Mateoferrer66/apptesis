@@ -22,8 +22,28 @@ function AppContent() {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [modelReady, setModelReady] = useState(false);
   const [shouldRedirectPlots, setShouldRedirectPlots] = useState(false);
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
-  const toggleOnline = () => setIsOnline(prev => !prev);
+  const [isOnline, setIsOnline] = useState(() => {
+    const userStr = localStorage.getItem('agrovision_user');
+    if (userStr) {
+      try { return !JSON.parse(userStr).isOffline && navigator.onLine; } catch(e) {}
+    }
+    return navigator.onLine;
+  });
+  
+  const toggleOnline = () => {
+    setIsOnline(prev => {
+      const next = !prev;
+      const userStr = localStorage.getItem('agrovision_user');
+      if (userStr) {
+        try {
+          const userObj = JSON.parse(userStr);
+          userObj.isOffline = !next;
+          localStorage.setItem('agrovision_user', JSON.stringify(userObj));
+        } catch(e) {}
+      }
+      return next;
+    });
+  };
   const [isSyncing, setIsSyncing] = useState(false);
   const [showSplash, setShowSplash] = useState(true);
   const [loadingMessage, setLoadingMessage] = useState('Iniciando sistema...');
@@ -86,7 +106,17 @@ function AppContent() {
   }, [isAuthenticated]);
 
   const handleSync = async () => {
-    if (!navigator.onLine) return;
+    if (!navigator.onLine) {
+      setSyncToast('Error: No hay conexión física a internet.');
+      setTimeout(() => setSyncToast(''), 3500);
+      return;
+    }
+    
+    // Si estaba offline lógicamente, pasarlo a online antes de sincronizar
+    if (!isOnline) {
+      toggleOnline();
+    }
+    
     setIsSyncing(true);
     try {
       const { success, count, error } = await syncAllPendingData();

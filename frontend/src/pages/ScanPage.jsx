@@ -56,8 +56,14 @@ export const ScanPage = ({ modelReady }) => {
     };
 
     try {
-      // Only call API if online
-      if (navigator.onLine) {
+      const userStr = localStorage.getItem('agrovision_user');
+      let isOfflineMode = false;
+      if (userStr) {
+        try { isOfflineMode = JSON.parse(userStr).isOffline; } catch(e) {}
+      }
+      
+      // Only call API if online and not explicitly set to offline
+      if (navigator.onLine && !isOfflineMode) {
         const res = await createInspection({
           inspectionDate: inspectionDate
         });
@@ -156,11 +162,19 @@ export const ScanPage = ({ modelReady }) => {
         deviceHash: 'local-browser'
       };
 
-      // 6. If online AND the inspection was successfully synced to the backend,
-      //    try to sync image metadata + inference. Otherwise skip (syncBulk will handle it).
-      if (navigator.onLine && activeInspection.sync_status === 'synced') {
-        let imageSynced = false;
-        // Image metadata
+      const userStr = localStorage.getItem('agrovision_user');
+      let isOfflineMode = false;
+      if (userStr) {
+        try { isOfflineMode = JSON.parse(userStr).isOffline; } catch(e) {}
+      }
+
+      // 6. Si hay internet y la inspección se sincronizó correctamente
+      // Intentamos sincronizar secuencialmente. Si falla uno, se detiene
+      // y se dejan en pendiente. Aquí no llamaría nunca al SyncBulk.
+      if (navigator.onLine && !isOfflineMode && activeInspection.sync_status === 'synced') {
+        let hasError = false;
+
+        // 6.1 Subir imagen
         try {
           const imgRes = await createInspectionImage(activeInspection.id, {
             inspectionId: activeInspection.id,
@@ -172,46 +186,69 @@ export const ScanPage = ({ modelReady }) => {
           });
           if (imgRes.success) {
             await db.images.update(imageId, { sync_status: 'synced' });
-            imageSynced = true;
+          } else {
+            hasError = true;
           }
         } catch (e) {
           console.warn('[ScanPage] No se pudo enviar metadata de imagen al servidor:', e.message);
+          hasError = true;
         }
 
-        // Only post inference if image was registered successfully
-        if (imageSynced) {
+        // 6.2 Guardar observación
+        if (!hasError) {
+          try {
+            const validDisease = prediction.pestId;
+            if (validDisease && validDisease.length === 36 && validDisease.includes('-')) {
+              const obsRes = await createObservation(obsPayload);
+              if (obsRes.success) {
+                await db.observations.update(obsPayload.id, { sync_status: 'synced' });
+              } else {
+                hasError = true;
+              }
+            } else {
+              hasError = true;
+            }
+          } catch (e) {
+            console.warn('[ScanPage] No se pudo enviar observacion al servidor:', e.message);
+            hasError = true;
+          }
+        }
+
+        // 6.3 Guardar inferencia
+        if (!hasError) {
           try {
             const infRes = await createInferenceResult(inferencePayload);
             if (infRes.success) {
               await db.inference_results.update(inferencePayload.id, { sync_status: 'synced' });
+            } else {
+              hasError = true;
             }
           } catch (e) {
             console.warn('[ScanPage] No se pudo enviar inferencia al servidor:', e.message);
+            hasError = true;
           }
         }
         
-        // Post Observation
-        try {
-          // Only send observation if disease is valid uuid
-          const validDisease = prediction.pestId;
-          if (validDisease && validDisease.length === 36 && validDisease.includes('-')) {
-            const obsRes = await createObservation(obsPayload);
-            if (obsRes.success) {
-              await db.observations.update(obsPayload.id, { sync_status: 'synced' });
+        // 6.4 Guardar telemetría
+        if (!hasError) {
+          try {
+            // El backend espera un solo objeto CreateTelemetryRequestDto
+            const telRes = await syncBulkTelemetry(telemetryPayload);
+            if (telRes.success) {
+              await db.inferences.update(telemetryLocalId, { synced: true });
+            } else {
+              hasError = true;
             }
+          } catch (e) {
+            console.warn('[ScanPage] No se pudo enviar telemetria al servidor:', e.message);
+            hasError = true;
           }
-        } catch (e) {
-          console.warn('[ScanPage] No se pudo enviar observacion al servidor:', e.message);
         }
-        
-        // Post Telemetry
-        try {
-          const telRes = await syncBulkTelemetry([telemetryPayload]);
-          if (telRes.success) {
-            await db.inferences.update(telemetryLocalId, { synced: true });
-          }
-        } catch (e) {
-          console.warn('[ScanPage] No se pudo enviar telemetria al servidor:', e.message);
+
+        // Si falló alguno, lo dejamos pendiente para SyncBulk manual posterior.
+        // Aquí no llamamos NUNCA al SyncBulk automáticamente.
+        if (hasError) {
+          console.warn('[ScanPage] Hubo errores en el envío individual. Los datos quedaron pendientes en la cola local.');
         }
       }
 

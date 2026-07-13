@@ -72,6 +72,12 @@ export const syncAllPendingData = async () => {
       if (catalogEntry && isUUID(catalogEntry.id)) {
         return catalogEntry.id;
       }
+      
+      // Si fakeIdOrName ya es un UUID válido, lo devolvemos en lugar de descartarlo
+      if (isUUID(fakeIdOrName)) {
+        return fakeIdOrName;
+      }
+      
       return EMPTY_GUID;
     };
 
