@@ -77,15 +77,23 @@ export const ScanPage = ({ modelReady }) => {
 
         if (res.success && res.data) {
           // Backend returned a valid inspection — use its id
+          let returnedId = null;
+          
           if (typeof res.data === 'string') {
-            localInspection.id = res.data.replace(/['"]+/g, ''); // strip quotes just in case
-            localInspection.sync_status = 'synced';
+            returnedId = res.data.replace(/['"]+/g, '');
+          } else if (res.data.data && (res.data.data.id || res.data.data.Id)) {
+            // El backend envuelve su propia respuesta en { success, data: { id } }
+            returnedId = res.data.data.id || res.data.data.Id;
           } else if (res.data.id || res.data.Id) {
-            localInspection.id = res.data.id || res.data.Id;
+            returnedId = res.data.id || res.data.Id;
+          }
+
+          if (returnedId) {
+            localInspection.id = returnedId;
             localInspection.sync_status = 'synced';
           } else {
-             // fallback if backend returned something unexpected but 200 OK
-             localInspection.sync_status = 'synced';
+            // fallback if backend returned something unexpected but 200 OK
+            localInspection.sync_status = 'synced';
           }
         }
       }
