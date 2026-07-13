@@ -159,16 +159,6 @@ export const ScanPage = ({ modelReady }) => {
         sync_status: 'pending'
       });
 
-      const telemetryPayload = {
-        id: generateUUID(),
-        timestamp: new Date().toISOString(),
-        pestType: prediction.pestType,
-        confidence: prediction.confidence,
-        inferenceTimeMs: prediction.inferenceTimeMs || 0,
-        inspectionCount: 1,
-        deviceHash: 'local-browser'
-      };
-
       const userStr = localStorage.getItem('agrovision_user');
       let isOfflineMode = false;
       if (userStr) {
@@ -181,6 +171,13 @@ export const ScanPage = ({ modelReady }) => {
       if (navigator.onLine && !isOfflineMode && activeInspection.sync_status === 'synced') {
         let hasError = false;
 
+        // Obtener o generar deviceId
+        let deviceId = localStorage.getItem('agrovision_device_id');
+        if (!deviceId) {
+           deviceId = generateUUID();
+           localStorage.setItem('agrovision_device_id', deviceId);
+        }
+
         // 6.1 Subir imagen
         try {
           const imgRes = await createInspectionImage(activeInspection.id, {
@@ -189,7 +186,7 @@ export const ScanPage = ({ modelReady }) => {
             mimeType: blob?.type || 'image/jpeg',
             width: imageElement?.width || 1,
             height: imageElement?.height || 1,
-            deviceId: 'local-browser'
+            deviceId: deviceId
           });
           if (imgRes.success) {
             await db.images.update(imageId, { sync_status: 'synced' });
@@ -239,6 +236,15 @@ export const ScanPage = ({ modelReady }) => {
         // 6.4 Guardar telemetría
         if (!hasError) {
           try {
+            const telemetryPayload = {
+              id: generateUUID(),
+              timestamp: new Date().toISOString(),
+              pestType: prediction.pestType,
+              confidence: prediction.confidence,
+              inferenceTimeMs: prediction.inferenceTimeMs || 0,
+              inspectionCount: 1,
+              deviceHash: deviceId
+            };
             // El backend espera un solo objeto CreateTelemetryRequestDto
             const telRes = await syncBulkTelemetry(telemetryPayload);
             if (telRes.success) {
