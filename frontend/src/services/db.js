@@ -22,7 +22,7 @@ import { generateUUID } from '../utils/uuid';
  */
 export const db = new Dexie('AgroVisionDB');
 
-db.version(4).stores({
+db.version(5).stores({
   // === Almacén para blobs de imágenes pesadas ===
   imagesStore: 'id',
   

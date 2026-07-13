@@ -29,8 +29,8 @@ export const ScanPage = ({ modelReady }) => {
       } else {
         // Fallback for offline/demo if not found
         setPlots([
-          { id: 'plot-001', name: 'Lote 001', farmName: 'Finca Demo' },
-          { id: 'plot-002', name: 'Lote 002', farmName: 'Finca Demo' }
+          { id: '11111111-2222-3333-4444-555555555555', name: 'Lote 001', farmName: 'Finca Demo' },
+          { id: '22222222-3333-4444-5555-666666666666', name: 'Lote 002', farmName: 'Finca Demo' }
         ]);
       }
     };
