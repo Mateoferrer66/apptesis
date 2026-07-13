@@ -75,10 +75,18 @@ export const ScanPage = ({ modelReady }) => {
           inspectionDate: inspectionDate
         });
 
-        if (res.success && res.data && res.data.id) {
+        if (res.success && res.data) {
           // Backend returned a valid inspection — use its id
-          localInspection.id = res.data.id;
-          localInspection.sync_status = 'synced';
+          if (typeof res.data === 'string') {
+            localInspection.id = res.data.replace(/['"]+/g, ''); // strip quotes just in case
+            localInspection.sync_status = 'synced';
+          } else if (res.data.id || res.data.Id) {
+            localInspection.id = res.data.id || res.data.Id;
+            localInspection.sync_status = 'synced';
+          } else {
+             // fallback if backend returned something unexpected but 200 OK
+             localInspection.sync_status = 'synced';
+          }
         }
       }
     } catch (error) {
