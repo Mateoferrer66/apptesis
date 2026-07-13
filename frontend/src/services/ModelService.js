@@ -27,12 +27,23 @@ const updateLabelsFromBackend = async () => {
       const remoteLabels = res.data.map(d => ({
         id: d.id,
         name: d.commonName || d.common_name,
-        scientific: d.scientificName || d.scientific_name || 'Desconocido',
-        risk: 'medium', // Default
-        color: '#ca8a04' // Default
+        scientific: d.scientificName || d.scientific_name || 'Desconocido'
       }));
-      // Por simplicidad, si la API devuelve datos válidos, los incorporamos.
-      // Se mantendría la lógica de merge o reemplazo según convenga.
+
+      // Reemplazamos los IDs hardcodeados por los IDs reales de la base de datos
+      PEST_LABELS = PEST_LABELS.map(localLabel => {
+        // Buscamos una coincidencia (ej: "Broca", "Roya", "Minador", "Antracnosis")
+        const keyword = localLabel.name.split(' ')[0].toLowerCase();
+        const match = remoteLabels.find(r => 
+          (r.name && r.name.toLowerCase().includes(keyword)) || 
+          (r.scientific && r.scientific.toLowerCase().includes(keyword))
+        );
+
+        if (match) {
+          return { ...localLabel, id: match.id };
+        }
+        return localLabel;
+      });
     }
   } catch (error) {
     console.warn('[AgroVision PWA] No se pudo obtener el catálogo de plagas remoto:', error);
