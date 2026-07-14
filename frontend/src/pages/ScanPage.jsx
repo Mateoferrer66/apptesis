@@ -70,9 +70,8 @@ export const ScanPage = ({ modelReady }) => {
       // Only call API if online and not explicitly set to offline
       if (navigator.onLine && !isOfflineMode) {
         const res = await createInspection({
-          plotId: selectedPlot,
-          inspectorId: inspectorId,
-          inspectionDate: inspectionDate
+          inspectionDate: inspectionDate,
+          plotId: selectedPlot
         });
 
         if (res.success && res.data) {
