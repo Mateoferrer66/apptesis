@@ -227,14 +227,12 @@ export const ScanPage = ({ modelReady }) => {
         // 6.2 Guardar observación
         if (!hasError) {
           try {
-            const validDisease = prediction.pestId;
-            if (validDisease && validDisease.length === 36 && validDisease.includes('-')) {
-              const obsRes = await createObservation(obsPayload);
-              if (obsRes.success) {
-                await db.observations.update(obsPayload.id, { sync_status: 'synced' });
-              } else {
-                hasError = true;
-              }
+            // Asignar null si no hay un UUID válido para evitar error de Guid vacío en .NET
+            obsPayload.diseaseId = (obsPayload.diseaseId && obsPayload.diseaseId.length === 36) ? obsPayload.diseaseId : null;
+            
+            const obsRes = await createObservation(obsPayload);
+            if (obsRes.success) {
+              await db.observations.update(obsPayload.id, { sync_status: 'synced' });
             } else {
               hasError = true;
             }
