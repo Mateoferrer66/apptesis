@@ -205,6 +205,17 @@ export const ScanPage = ({ modelReady }) => {
             deviceId: deviceId
           });
           if (imgRes.success) {
+            let backendImageId = imageId;
+            if (imgRes.data) {
+              if (typeof imgRes.data === 'string') {
+                backendImageId = imgRes.data.replace(/['"]+/g, '');
+              } else if (imgRes.data.data && (imgRes.data.data.id || imgRes.data.data.Id)) {
+                backendImageId = imgRes.data.data.id || imgRes.data.data.Id;
+              } else if (imgRes.data.id || imgRes.data.Id) {
+                backendImageId = imgRes.data.id || imgRes.data.Id;
+              }
+            }
+            inferencePayload.imageId = backendImageId;
             await db.images.update(imageId, { sync_status: 'synced' });
           } else {
             hasError = true;

@@ -9,12 +9,21 @@ let model = null;
 
 // Labels de clasificación de plagas del café (Fallback)
 export let PEST_LABELS = [
-  { id: '11111111-1111-1111-1111-111111111111', name: 'Broca del Café', scientific: 'Hypothenemus hampei', risk: 'critical', color: '#dc2626' },
-  { id: '22222222-2222-2222-2222-222222222222', name: 'Roya del Cafeto', scientific: 'Hemileia vastatrix', risk: 'high', color: '#ea580c' },
-  { id: '33333333-3333-3333-3333-333333333333', name: 'Minador de la Hoja', scientific: 'Leucoptera coffeella', risk: 'medium', color: '#d97706' },
-  { id: '44444444-4444-4444-4444-444444444444', name: 'Antracnosis', scientific: 'Colletotrichum spp.', risk: 'medium', color: '#ca8a04' },
-  { id: '55555555-5555-5555-5555-555555555555', name: 'Planta Sana', scientific: 'Sin plagas detectadas', risk: 'none', color: '#16a34a' },
+  { id: '', name: 'Broca del Café', scientific: 'Hypothenemus hampei', risk: 'critical', color: '#dc2626' },
+  { id: '', name: 'Roya del Cafeto', scientific: 'Hemileia vastatrix', risk: 'high', color: '#ea580c' },
+  { id: '', name: 'Minador de la Hoja', scientific: 'Leucoptera coffeella', risk: 'medium', color: '#d97706' },
+  { id: '', name: 'Antracnosis', scientific: 'Colletotrichum spp.', risk: 'medium', color: '#ca8a04' },
+  { id: '', name: 'Planta Sana', scientific: 'Sin plagas detectadas', risk: 'none', color: '#16a34a' },
 ];
+
+try {
+  const cachedLabels = localStorage.getItem('agrovision_pest_labels');
+  if (cachedLabels) {
+    PEST_LABELS = JSON.parse(cachedLabels);
+  }
+} catch (e) {
+  console.warn('No se pudo cargar PEST_LABELS cacheadas', e);
+}
 
 /**
  * Intenta actualizar las etiquetas (PEST_LABELS) desde el backend
@@ -22,28 +31,37 @@ export let PEST_LABELS = [
 const updateLabelsFromBackend = async () => {
   try {
     const res = await getDiseaseCatalog();
-    if (res.success && res.data && res.data.length > 0) {
-      // Mapear los datos del backend a nuestro formato interno si es posible
-      const remoteLabels = res.data.map(d => ({
-        id: d.id,
-        name: d.commonName || d.common_name,
-        scientific: d.scientificName || d.scientific_name || 'Desconocido'
-      }));
+    if (res.success && res.data) {
+      // Extraemos el array si está anidado (formato .NET)
+      const dataArr = Array.isArray(res.data) ? res.data : (res.data.$values || (res.data.data ? (Array.isArray(res.data.data) ? res.data.data : res.data.data.$values) : []));
+      
+      if (dataArr && dataArr.length > 0) {
+        // Mapear los datos del backend a nuestro formato interno
+        const remoteLabels = dataArr.map(d => ({
+          id: d.id || d.Id,
+          name: d.name || d.commonName || d.common_name,
+          scientific: d.scientificName || d.scientific_name || 'Desconocido'
+        }));
 
-      // Reemplazamos los IDs hardcodeados por los IDs reales de la base de datos
-      PEST_LABELS = PEST_LABELS.map(localLabel => {
-        // Buscamos una coincidencia (ej: "Broca", "Roya", "Minador", "Antracnosis")
-        const keyword = localLabel.name.split(' ')[0].toLowerCase();
-        const match = remoteLabels.find(r => 
-          (r.name && r.name.toLowerCase().includes(keyword)) || 
-          (r.scientific && r.scientific.toLowerCase().includes(keyword))
-        );
+        // Reemplazamos los IDs hardcodeados por los IDs reales de la base de datos
+        PEST_LABELS = PEST_LABELS.map(localLabel => {
+          // Buscamos una coincidencia (ej: "Broca", "Roya", "Minador", "Antracnosis", "Planta")
+          const keyword = localLabel.name.split(' ')[0].toLowerCase();
+          const match = remoteLabels.find(r => 
+            (r.name && r.name.toLowerCase().includes(keyword)) || 
+            (r.scientific && r.scientific.toLowerCase().includes(keyword)) ||
+            (localLabel.name === 'Planta Sana' && (r.name || '').toLowerCase().includes('sana'))
+          );
 
-        if (match) {
-          return { ...localLabel, id: match.id };
-        }
-        return localLabel;
-      });
+          if (match) {
+            return { ...localLabel, id: match.id };
+          }
+          return localLabel;
+        });
+
+        // Guardar las etiquetas en localStorage por si después estamos offline
+        localStorage.setItem('agrovision_pest_labels', JSON.stringify(PEST_LABELS));
+      }
     }
   } catch (error) {
     console.warn('[AgroVision PWA] No se pudo obtener el catálogo de plagas remoto:', error);
