@@ -246,6 +246,16 @@ export const saveInferenceResult = async (result) => {
     predicted_disease_id: result.predicted_disease_id || result.predictedDiseaseId,
     confidence: result.confidence,
     top_k_json: result.top_k_json || result.topKJson,
+    inferenceTimeMs: result.inferenceTimeMs,
+    tfBackend: result.tfBackend,
+    deviceMemoryGb: result.deviceMemoryGb,
+    browser: result.browser,
+    browserVersion: result.browserVersion || result.browser_version,
+    browser_version: result.browser_version || result.browserVersion,
+    platform: result.platform,
+    operatingSystem: result.operatingSystem,
+    userAgent: result.userAgent,
+    tensorflowVersion: result.tensorflowVersion,
     sync_status: result.sync_status || 'pending',
   });
 };

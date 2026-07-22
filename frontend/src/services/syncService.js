@@ -237,7 +237,14 @@ export const syncAllPendingData = async () => {
         topKJson: inference.top_k_json || '[]',
         inferenceTimeMs: inference.inferenceTimeMs || 0,
         tfBackend: inference.tfBackend || 'wasm',
-        deviceMemoryGb: navigator.deviceMemory || 0
+        deviceMemoryGb: navigator.deviceMemory || 0,
+        browser: inference.browser || null,
+        browser_version: inference.browser_version || inference.browserVersion || null,
+        browserVersion: inference.browserVersion || inference.browser_version || null,
+        platform: inference.platform || null,
+        operatingSystem: inference.operatingSystem || null,
+        userAgent: inference.userAgent || null,
+        tensorflowVersion: inference.tensorflowVersion || null
       };
       inferenceResultsDto.push(inferenceDto);
       toUpdateInferences.push({ old: inference.id, new: inferenceDto.id });
@@ -268,24 +275,23 @@ export const syncAllPendingData = async () => {
     }
     
     // Mapear Telemetría Legacy
+    // NOTA: Las telemetrías legacy no tienen inspectionId. 
+    // Como el backend ahora exige inspectionId, enviarlas causará un error 500 de llave foránea.
+    // Por tanto, solo las marcamos como sincronizadas localmente para vaciar la cola estancada.
     const pendingTelemetry = legacyInferences.filter(item => item.synced === false);
     for (const item of pendingTelemetry) {
-      telemetriesDto.push({
-        id: generateUUID(),
-        timestamp: item.timestamp,
-        pestType: item.pestType,
-        confidence: item.confidence,
-        inferenceTimeMs: item.inferenceTimeMs || 0,
-        inspectionCount: 1,
-        deviceHash: deviceId
-      });
       toUpdateTelemetries.push(item.id);
     }
     
     // Si no hay nada que sincronizar, retornamos éxito
-    if (inspectionsDto.length === 0 && telemetriesDto.length === 0) {
+    if (inspectionsDto.length === 0 && imagesDto.length === 0 && observationsDto.length === 0 && inferenceResultsDto.length === 0 && telemetriesDto.length === 0) {
       if (hasIncompleteData) {
         return { success: false, error: 'Existen datos incompletos (IDs faltantes). Inicie sesión y asegúrese de tener los catálogos descargados.' };
+      }
+      
+      // Aún si todo estaba vacío, podríamos haber limpiado legacy telemetry, así que procesamos updates
+      for (const id of toUpdateTelemetries) {
+        await db.inferences.update(id, { synced: true });
       }
       return { success: true, count: 0 };
     }

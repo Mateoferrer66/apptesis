@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { CameraCapture } from '../components/CameraCapture';
 import { InferenceResult } from '../components/InferenceResult';
-import { predictPest } from '../services/ModelService';
+import { predictPest, PEST_LABELS } from '../services/ModelService';
 import { saveInference, saveImageBlob, saveInferenceResult, db } from '../services/db';
-import { getPlots, createInspection, createInspectionImage, createInferenceResult, createObservation, syncBulkTelemetry } from '../services/apiService';
+import * as tf from '@tensorflow/tfjs';
+import { getPlots, createInspection, createInspectionImage, createInferenceResult, createObservation, syncBulkTelemetry, getDiseaseCatalog } from '../services/apiService';
 import { useAuth } from '../contexts/AuthContext';
 import { Activity, ScanLine, Shield, MapPin, CheckCircle, PlusCircle } from 'lucide-react';
 import { generateUUID } from '../utils/uuid';
@@ -140,26 +141,116 @@ export const ScanPage = ({ modelReady }) => {
         });
       }
 
-      // 4. Save inference result to IndexedDB
+      // 4. Resolver el diseaseId real
+      let realDiseaseId = prediction.pestId;
+      const isUUID = (str) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(str);
+      
+      if (!isUUID(realDiseaseId)) {
+        try {
+          let diseases = await db.disease_catalog.toArray();
+          
+          // Si no hay enfermedades en la BD local, intentamos traerlas de la API
+          if (diseases.length === 0 && navigator.onLine) {
+            try {
+              const catRes = await getDiseaseCatalog();
+              if (catRes.success) {
+                const catalog = catRes.data.data || catRes.data;
+                if (catalog && catalog.length > 0) {
+                  diseases = catalog.map(c => ({
+                    id: c.id,
+                    common_name: c.commonName || c.name || c.common_name,
+                    scientific_name: c.scientificName || c.scientific_name,
+                    category: c.category || 'Pest'
+                  }));
+                  await db.disease_catalog.bulkAdd(diseases);
+                }
+              }
+            } catch(fetchErr) {
+              console.warn('[ScanPage] Error fetching from API', fetchErr);
+            }
+          }
+
+          const searchKey = realDiseaseId || prediction.pestType;
+          const pestLabel = PEST_LABELS.find(p => p.id === searchKey || p.name === searchKey || p.pestType === searchKey);
+          const nameToSearch = pestLabel ? pestLabel.name : searchKey;
+          
+          const matchedDisease = diseases.find(d => 
+            d.common_name && (
+              d.common_name.toLowerCase().includes(nameToSearch.toLowerCase()) || 
+              nameToSearch.toLowerCase().includes(d.common_name.toLowerCase())
+            )
+          );
+          
+          if (matchedDisease && isUUID(matchedDisease.id)) {
+            realDiseaseId = matchedDisease.id;
+          } else if (diseases.length > 0) {
+            const validDisease = diseases.find(d => isUUID(d.id));
+            if (validDisease) {
+               realDiseaseId = validDisease.id;
+            }
+          }
+        } catch(err) {
+           console.warn('[ScanPage] Error fetching disease catalog', err);
+        }
+      }
+
+      // Si no pudimos resolver a un UUID, usamos el UUID vacío por defecto para que no de null
+      if (!isUUID(realDiseaseId)) {
+        realDiseaseId = "00000000-0000-0000-0000-000000000000";
+      }
+      // Recopilar información del dispositivo y navegador
+      let browserInfo = null;
+      let browserVer = null;
+      let platformInfo = navigator?.platform || null;
+      let osInfo = null;
+
+      if (navigator?.userAgentData) {
+         browserInfo = navigator.userAgentData.brands?.map(b => b.brand).join(', ') || browserInfo;
+         platformInfo = navigator.userAgentData.platform || platformInfo;
+      } else {
+         const ua = navigator?.userAgent || '';
+         if (ua.includes('Firefox')) browserInfo = 'Firefox';
+         else if (ua.includes('Edg/')) browserInfo = 'Edge';
+         else if (ua.includes('Chrome')) browserInfo = 'Chrome';
+         else if (ua.includes('Safari')) browserInfo = 'Safari';
+         
+         const match = ua.match(/(firefox|edg|chrome|safari)\/?\s*(\d+)/i);
+         if (match && match[2]) browserVer = match[2];
+      }
+      
+      const uaLower = (navigator?.userAgent || '').toLowerCase();
+      if (uaLower.includes('win')) osInfo = 'Windows';
+      else if (uaLower.includes('mac')) osInfo = 'MacOS';
+      else if (uaLower.includes('android')) osInfo = 'Android';
+      else if (uaLower.includes('linux')) osInfo = 'Linux';
+      else if (uaLower.includes('iphone') || uaLower.includes('ipad')) osInfo = 'iOS';
+
+      // 4.1 Save inference result to IndexedDB
       const inferencePayload = {
         id: generateUUID(),
         imageId: imageId,
         modelName: 'broca_detect_v1',
         modelVersion: 'v1.0.0',
-        predictedDiseaseId: prediction.pestId,
+        predictedDiseaseId: realDiseaseId,
         confidence: prediction.confidence,
         topKJson: JSON.stringify(prediction.allPredictions),
         inferenceTimeMs: prediction.inferenceTimeMs,
         tfBackend: 'wasm',
-        deviceMemoryGb: navigator.deviceMemory || 0
+        deviceMemoryGb: navigator.deviceMemory || 0,
+        browser: browserInfo,
+        browserVersion: browserVer,
+        platform: platformInfo,
+        operatingSystem: osInfo,
+        userAgent: navigator?.userAgent || null,
+        tensorflowVersion: tf?.version?.tfjs || null
       };
       await saveInferenceResult(inferencePayload);
-      
+
       // 5. Save observation to IndexedDB
       const obsPayload = {
         id: generateUUID(),
         inspectionId: activeInspection.id,
-        diseaseId: prediction.pestId,
+        diseaseId: realDiseaseId,
         severityLevel: prediction.risk === 'critical' ? 5 : (prediction.risk === 'high' ? 4 : (prediction.risk === 'medium' ? 3 : 1)),
         incidencePercent: prediction.confidence * 100,
         sourceType: 'AI'
@@ -229,12 +320,22 @@ export const ScanPage = ({ modelReady }) => {
           try {
             // Asignar null si no hay un UUID válido para evitar error de Guid vacío en .NET
             obsPayload.diseaseId = (obsPayload.diseaseId && obsPayload.diseaseId.length === 36) ? obsPayload.diseaseId : null;
+            // Si el backend no acepta null pero sí requiere un Guid, lo dejaremos como está
+            if (!obsPayload.diseaseId) {
+                obsPayload.diseaseId = "00000000-0000-0000-0000-000000000000";
+            }
             
-            const obsRes = await createObservation(obsPayload);
-            if (obsRes.success) {
-              await db.observations.update(obsPayload.id, { sync_status: 'synced' });
+            // Si el diseaseId sigue siendo inválido/vacío, NO enviamos al servidor para evitar error 400.
+            if (obsPayload.diseaseId !== "00000000-0000-0000-0000-000000000000") {
+              const obsRes = await createObservation(obsPayload);
+              if (obsRes.success) {
+                await db.observations.update(obsPayload.id, { sync_status: 'synced' });
+              } else {
+                hasError = true;
+              }
             } else {
-              hasError = true;
+              console.warn('[ScanPage] Observación dejada en local: falta diseaseId válido');
+              hasError = true; // Detenemos sincronización del resto de inferencias para este lote de fotos, se subirá en el syncWorker
             }
           } catch (e) {
             console.warn('[ScanPage] No se pudo enviar observacion al servidor:', e.message);
@@ -245,10 +346,15 @@ export const ScanPage = ({ modelReady }) => {
         // 6.3 Guardar inferencia
         if (!hasError) {
           try {
-            const infRes = await createInferenceResult(inferencePayload);
-            if (infRes.success) {
-              await db.inference_results.update(inferencePayload.id, { sync_status: 'synced' });
+            if (inferencePayload.predictedDiseaseId !== "00000000-0000-0000-0000-000000000000") {
+              const infRes = await createInferenceResult(inferencePayload);
+              if (infRes.success) {
+                await db.inference_results.update(inferencePayload.id, { sync_status: 'synced' });
+              } else {
+                hasError = true;
+              }
             } else {
+              console.warn('[ScanPage] Inferencia dejada en local: falta diseaseId válido');
               hasError = true;
             }
           } catch (e) {
@@ -267,7 +373,8 @@ export const ScanPage = ({ modelReady }) => {
               confidence: prediction.confidence,
               inferenceTimeMs: prediction.inferenceTimeMs || 0,
               inspectionCount: 1,
-              deviceHash: deviceId
+              deviceHash: deviceId,
+              inspectionId: activeInspection.id
             };
             const telRes = await syncBulkTelemetry(telemetryPayload);
             if (telRes.success) {
