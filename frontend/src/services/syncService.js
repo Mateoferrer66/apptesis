@@ -49,7 +49,7 @@ export const syncAllPendingData = async () => {
     const toUpdateInferences = [];
     const toUpdateTelemetries = [];
     
-    const isUUID = (str) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(str);
+    const isUUID = (str) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
     const getValidUUID = (id) => isUUID(id) ? id : EMPTY_GUID;
 
     const getRealDiseaseId = (fakeIdOrName) => {
@@ -168,7 +168,7 @@ export const syncAllPendingData = async () => {
       }
 
       let validPlotId = getValidUUID(insp.plot_id || insp.plotId);
-      if (validPlotId === EMPTY_GUID) {
+      if (validPlotId === EMPTY_GUID || validPlotId === '11111111-2222-3333-4444-555555555555' || validPlotId === '22222222-3333-4444-5555-666666666666') {
         validPlotId = fallbackPlotId;
       }
 
@@ -293,6 +293,7 @@ export const syncAllPendingData = async () => {
             const insp = allInspectionsInDb.find(i => i.id === reqId);
             if (insp) {
                 let vPlotId = getValidUUID(insp.plot_id || insp.plotId);
+                if (vPlotId === '11111111-2222-3333-4444-555555555555' || vPlotId === '22222222-3333-4444-5555-666666666666') vPlotId = EMPTY_GUID;
                 let vInspectorId = getValidUUID(insp.inspector_id || insp.inspectorId);
                 
                 if (vPlotId === EMPTY_GUID) vPlotId = fallbackPlotId;
