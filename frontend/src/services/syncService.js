@@ -238,13 +238,13 @@ export const syncAllPendingData = async () => {
         inferenceTimeMs: inference.inferenceTimeMs || 0,
         tfBackend: inference.tfBackend || 'wasm',
         deviceMemoryGb: navigator.deviceMemory || 0,
-        browser: inference.browser || null,
-        browser_version: inference.browser_version || inference.browserVersion || null,
-        browserVersion: inference.browserVersion || inference.browser_version || null,
-        platform: inference.platform || null,
-        operatingSystem: inference.operatingSystem || null,
-        userAgent: inference.userAgent || null,
-        tensorflowVersion: inference.tensorflowVersion || null
+        browser: inference.browser || 'Unknown',
+        browser_version: inference.browser_version || inference.browserVersion || 'Unknown',
+        browserVersion: inference.browserVersion || inference.browser_version || 'Unknown',
+        platform: inference.platform || 'Unknown',
+        operatingSystem: inference.operatingSystem || 'Unknown',
+        userAgent: inference.userAgent || 'Unknown',
+        tensorflowVersion: inference.tensorflowVersion || 'Unknown'
       };
       inferenceResultsDto.push(inferenceDto);
       toUpdateInferences.push({ old: inference.id, new: inferenceDto.id });

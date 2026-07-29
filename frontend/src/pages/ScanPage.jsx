@@ -207,16 +207,25 @@ export const ScanPage = ({ modelReady }) => {
       if (navigator?.userAgentData) {
          browserInfo = navigator.userAgentData.brands?.map(b => b.brand).join(', ') || browserInfo;
          platformInfo = navigator.userAgentData.platform || platformInfo;
-      } else {
+         const brandWithVersion = navigator.userAgentData.brands?.find(b => b.version && !b.brand.includes('Not'));
+         if (brandWithVersion) browserVer = brandWithVersion.version;
+      } 
+      
+      if (!browserVer) {
          const ua = navigator?.userAgent || '';
-         if (ua.includes('Firefox')) browserInfo = 'Firefox';
-         else if (ua.includes('Edg/')) browserInfo = 'Edge';
-         else if (ua.includes('Chrome')) browserInfo = 'Chrome';
-         else if (ua.includes('Safari')) browserInfo = 'Safari';
+         if (!browserInfo) {
+             if (ua.includes('Firefox')) browserInfo = 'Firefox';
+             else if (ua.includes('Edg/')) browserInfo = 'Edge';
+             else if (ua.includes('Chrome')) browserInfo = 'Chrome';
+             else if (ua.includes('Safari')) browserInfo = 'Safari';
+         }
          
-         const match = ua.match(/(firefox|edg|chrome|safari)\/?\s*(\d+)/i);
+         const match = ua.match(/(firefox|edg|chrome|safari)\/?\s*(\d+)/i) || ua.match(/version\/?\s*(\d+)/i);
          if (match && match[2]) browserVer = match[2];
       }
+      
+      if (!browserVer) browserVer = 'Unknown';
+      if (!browserInfo) browserInfo = 'Unknown';
       
       const uaLower = (navigator?.userAgent || '').toLowerCase();
       if (uaLower.includes('win')) osInfo = 'Windows';
