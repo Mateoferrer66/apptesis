@@ -211,7 +211,8 @@ export const ScanPage = ({ modelReady }) => {
          if (brandWithVersion) browserVer = brandWithVersion.version;
       } 
       
-      if (!browserVer) {
+      // Si no hay browserVer o solo tiene un número (versión mayor), intentamos sacar la completa del userAgent
+      if (!browserVer || !browserVer.includes('.')) {
          const ua = navigator?.userAgent || '';
          if (!browserInfo) {
              if (ua.includes('Firefox')) browserInfo = 'Firefox';
@@ -220,8 +221,9 @@ export const ScanPage = ({ modelReady }) => {
              else if (ua.includes('Safari')) browserInfo = 'Safari';
          }
          
-         const match = ua.match(/(firefox|edg|chrome|safari)\/?\s*(\d+)/i) || ua.match(/version\/?\s*(\d+)/i);
-         if (match && match[2]) browserVer = match[2];
+         // Extrae la versión completa (ej: 130.0.1)
+         const match = ua.match(/(?:firefox|edg|chrome|safari)\/?\s*([\d.]+)/i) || ua.match(/version\/?\s*([\d.]+)/i);
+         if (match && match[1]) browserVer = match[1];
       }
       
       if (!browserVer) browserVer = 'Unknown';
