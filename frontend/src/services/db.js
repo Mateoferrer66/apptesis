@@ -81,7 +81,7 @@ db.version(5).stores({
 /**
  * Guardar una inferencia rápida (flujo de escaneo offline).
  */
-export const saveInference = async (prediction, imageDataUrl = null) => {
+export const saveInference = async (prediction, imageDataUrl = null, inspectionId = null) => {
   return db.inferences.add({
     timestamp: new Date().toISOString(),
     pestType: prediction.pestType,
@@ -92,6 +92,7 @@ export const saveInference = async (prediction, imageDataUrl = null) => {
     inferenceTimeMs: prediction.inferenceTimeMs,
     imagePreview: imageDataUrl,
     synced: false,
+    inspectionId: inspectionId,
   });
 };
 

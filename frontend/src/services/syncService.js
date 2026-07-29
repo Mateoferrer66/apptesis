@@ -183,12 +183,6 @@ export const syncAllPendingData = async () => {
         validInspectorId = fallbackInspectorId;
       }
 
-      // Si después de todos los fallbacks aún no hay ID válido, ignorar silenciosamente y dejar en pendiente
-      if (validPlotId === EMPTY_GUID || validInspectorId === EMPTY_GUID) {
-         hasIncompleteData = true;
-         continue; 
-      }
-
       const inspectionDto = {
         id: safeInspId,
         plotId: validPlotId,
@@ -222,11 +216,6 @@ export const syncAllPendingData = async () => {
           realPredictedDiseaseId = fallbackDiseaseId;
       }
       
-      if (realPredictedDiseaseId === EMPTY_GUID) {
-          hasIncompleteData = true;
-          continue;
-      }
-
       const inferenceDto = {
         id: isUUID(inference.id) ? inference.id : generateUUID(),
         imageId: inference.image_id || inference.imageId,
@@ -257,11 +246,6 @@ export const syncAllPendingData = async () => {
           realDiseaseId = fallbackDiseaseId;
       }
 
-      if (realDiseaseId === EMPTY_GUID) {
-          hasIncompleteData = true;
-          continue;
-      }
-
       const obsDto = {
         id: isUUID(obs.id) ? obs.id : generateUUID(),
         inspectionId: obs.inspection_id || obs.inspectionId,
@@ -274,13 +258,56 @@ export const syncAllPendingData = async () => {
       toUpdateObservations.push({ old: obs.id, new: obsDto.id });
     }
     
-    // Mapear Telemetría Legacy
-    // NOTA: Las telemetrías legacy no tienen inspectionId. 
-    // Como el backend ahora exige inspectionId, enviarlas causará un error 500 de llave foránea.
-    // Por tanto, solo las marcamos como sincronizadas localmente para vaciar la cola estancada.
+    // Mapear Telemetría
     const pendingTelemetry = legacyInferences.filter(item => item.synced === false);
     for (const item of pendingTelemetry) {
+      const validInspId = getValidUUID(item.inspectionId);
+      if (validInspId !== EMPTY_GUID) {
+        telemetriesDto.push({
+          id: isUUID(item.id) ? item.id : generateUUID(),
+          timestamp: item.timestamp,
+          pestType: item.pestType,
+          confidence: item.confidence,
+          inferenceTimeMs: item.inferenceTimeMs || 0,
+          inspectionCount: 1,
+          deviceHash: deviceId,
+          inspectionId: validInspId
+        });
+      }
       toUpdateTelemetries.push(item.id);
+    }
+
+    // --- RECOLECTAR INSPECCIONES FALTANTES ---
+    // El backend requiere que las inspecciones referenciadas existan en el payload
+    // si no han sido creadas previamente, y para evitar FK errors, las enviamos.
+    const allInspectionsInDb = await db.inspections.toArray();
+    const existingInspIds = new Set(inspectionsDto.map(i => i.id));
+    const requiredInspIds = new Set();
+    
+    imagesDto.forEach(img => requiredInspIds.add(img.inspectionId));
+    observationsDto.forEach(obs => requiredInspIds.add(obs.inspectionId));
+    telemetriesDto.forEach(tel => requiredInspIds.add(tel.inspectionId));
+    
+    for (const reqId of requiredInspIds) {
+        if (!existingInspIds.has(reqId)) {
+            const insp = allInspectionsInDb.find(i => i.id === reqId);
+            if (insp) {
+                let vPlotId = getValidUUID(insp.plot_id || insp.plotId);
+                let vInspectorId = getValidUUID(insp.inspector_id || insp.inspectorId);
+                
+                if (vPlotId === EMPTY_GUID) vPlotId = fallbackPlotId;
+                if (vInspectorId === EMPTY_GUID && currentUser && isUUID(currentUser.id)) vInspectorId = currentUser.id;
+                if (vInspectorId === EMPTY_GUID) vInspectorId = fallbackInspectorId;
+                
+                inspectionsDto.push({
+                    id: insp.id,
+                    plotId: vPlotId,
+                    inspectorId: vInspectorId,
+                    inspectionDate: insp.inspection_date || insp.inspectionDate || new Date().toISOString()
+                });
+                existingInspIds.add(insp.id);
+            }
+        }
     }
     
     // Si no hay nada que sincronizar, retornamos éxito

@@ -122,7 +122,7 @@ export const ScanPage = ({ modelReady }) => {
       const prediction = await predictPest(imageElement);
       
       // 2. Local quick history (optional but useful for stats)
-      const telemetryLocalId = await saveInference(prediction, dataUrl);
+      const telemetryLocalId = await saveInference(prediction, dataUrl, activeInspection.id);
 
       // 3. Save blob locally and insert metadata to IndexedDB
       const imageId = generateUUID();
