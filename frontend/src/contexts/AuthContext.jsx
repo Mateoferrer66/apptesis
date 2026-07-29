@@ -68,8 +68,13 @@ export const AuthProvider = ({ children }) => {
            decodedPayload = decodeJwt(foundToken);
         }
         
+        const realId = decodedPayload?.['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'] || 
+                       decodedPayload?.sub || decodedPayload?.nameid || decodedPayload?.id || decodedPayload?.uid ||
+                       data?.id || data?.Id || data?.userId || data?.profileId || 
+                       data?.data?.id || data?.data?.Id || data?.data?.userId || data?.data?.profileId;
+                       
         const userData = {
-          id: decodedPayload?.['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'] || data?.id || data?.Id || data?.userId || 'admin-id',
+          id: realId || 'admin-id',
           fullName: decodedPayload?.['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name'] || data?.fullName || data?.FullName || data?.email || 'Admin',
           email: decodedPayload?.['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress'] || data?.email || data?.Email,
           role: decodedPayload?.['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] || data?.role || data?.Role || 'Admin',

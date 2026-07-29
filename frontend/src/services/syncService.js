@@ -128,7 +128,10 @@ export const syncAllPendingData = async () => {
         try {
             const meRes = await getMe();
             if (meRes.success && meRes.data) {
-                const possibleIds = [meRes.data.profileId, meRes.data.id, meRes.data.userId];
+                const possibleIds = [
+                    meRes.data.profileId, meRes.data.id, meRes.data.userId,
+                    meRes.data.data?.profileId, meRes.data.data?.id, meRes.data.data?.userId
+                ];
                 for (const pid of possibleIds) {
                     if (isUUID(pid) && pid !== EMPTY_GUID) {
                         fallbackInspectorId = pid;
@@ -324,7 +327,6 @@ export const syncAllPendingData = async () => {
       return { success: true, count: 0 };
     }
 
-    // Enviar el SyncBulk
     const bulkPayload = {
       deviceId,
       inspections: inspectionsDto,
@@ -333,6 +335,20 @@ export const syncAllPendingData = async () => {
       inferenceResults: inferenceResultsDto,
       telemetries: telemetriesDto
     };
+    
+    // PRE-FLIGHT CHECK: Evitar Error 500 por llaves foráneas en ceros
+    const missingFkErrors = [];
+    if (inspectionsDto.some(i => i.inspectorId === EMPTY_GUID)) missingFkErrors.push('Inspector (Usuario)');
+    if (inspectionsDto.some(i => i.plotId === EMPTY_GUID)) missingFkErrors.push('Lote (Plot)');
+    if (observationsDto.some(o => o.diseaseId === EMPTY_GUID)) missingFkErrors.push('Enfermedad (Observaciones)');
+    if (inferenceResultsDto.some(inf => inf.predictedDiseaseId === EMPTY_GUID)) missingFkErrors.push('Enfermedad (Inferencias)');
+    
+    if (missingFkErrors.length > 0) {
+      return { 
+        success: false, 
+        error: `Faltan IDs válidos para: ${missingFkErrors.join(', ')}. Por favor, asegúrese de iniciar sesión correctamente y tener conexión para descargar los catálogos antes de sincronizar.`
+      };
+    }
     
     const bulkRes = await syncBulk(bulkPayload);
     
