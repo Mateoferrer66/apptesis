@@ -55,4 +55,11 @@ export default defineConfig({
   server: {
     port: 8004,
   },
+  test: {
+    globals: true,
+    environment: 'jsdom',
+    setupFiles: './src/setupTests.js',
+    css: true,
+    exclude: ['node_modules', 'e2e']
+  },
 })
