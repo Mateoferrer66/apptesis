@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { login as loginApi } from '../services/apiService';
 
-const AuthContext = createContext(null);
+export const AuthContext = createContext(null);
 
 /**
  * Proveedor de autenticación.
